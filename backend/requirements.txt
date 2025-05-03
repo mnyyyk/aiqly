@@ -1,0 +1,27 @@
+flask
+flask-cors
+python-dotenv
+openai
+chromadb
+requests
+beautifulsoup4
+pypdf
+python-docx
+tiktoken # OpenAIのトークン数計算やチャンク分割に便利
+langchain # 任意：チャンク分割や文書ロードに便利
+PyPDF2
+selenium
+webdriver-manager
+Flask-SQLAlchemy  # 追加: データベース操作用
+Flask-Login       # 追加: ログイン管理用
+Flask-WTF         # 追加: フォーム作成・検証用
+email-validator   # 追加: メールアドレス検証用 (Flask-WTFで必要)
+Werkzeug          # Flaskに通常付属 (パスワードハッシュ用)
+alembic         # 任意(DBマイグレーション用、今回は省略)
+Flask-Migrate   # 任意(DBマイグレーション用、今回は省略)
+flask-dance
+google-auth
+google-auth-oauthlib
+google-api-python-client
+celery[redis]
+gunicorn

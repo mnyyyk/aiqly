@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}chachat{% endblock %}</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; }
+        .navbar { background-color: #333; overflow: hidden; padding: 10px 20px; }
+        .navbar a { float: left; display: block; color: white; text-align: center; padding: 14px 16px; text-decoration: none; }
+        .navbar a:hover { background-color: #ddd; color: black; }
+        .nav-right { float: right; }
+        .container { max-width: 960px; margin: 20px auto; padding: 20px; background-color: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        /* フラッシュメッセージのスタイル */
+        .flashes { list-style: none; padding: 0; margin: 0 0 20px 0; }
+        .flashes li { padding: 10px 15px; margin-bottom: 10px; border-radius: 4px; }
+        .flashes .info { background-color: #d1ecf1; color: #0c5464; border: 1px solid #bee5eb; }
+        .flashes .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .flashes .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .flashes .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        /* フォームのエラースタイル */
+        .form-error { color: red; font-size: 0.9em; list-style: none; padding-left: 0; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold;}
+        .form-group input[type="text"],
+        .form-group input[type="email"],
+        .form-group input[type="password"] {
+            width: calc(100% - 22px); padding: 10px; border: 1px solid #ccc; border-radius: 4px;
+        }
+        .form-group input[type="checkbox"] { margin-right: 5px; vertical-align: middle;}
+        .form-group .submit-button { padding: 10px 20px; background-color: #5cb85c; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .form-group .submit-button:hover { background-color: #4cae4c; }
+    </style>
+    {% block head_extra %}{% endblock %}
+</head>
+<body>
+    <div class="navbar">
+        <a href="{{ url_for('serve_chatbot') }}">チャット</a>
+        {% if current_user.is_authenticated %}
+            <a href="{{ url_for('serve_admin') }}">管理画面</a>
+            <div class="nav-right">
+                <span style="color: white; margin-right: 15px;">こんにちは、{{ current_user.email }} さん</span>
+                <a href="{{ url_for('logout') }}">ログアウト</a>
+            </div>
+        {% else %}
+            <div class="nav-right">
+                <a href="{{ url_for('login') }}">ログイン</a>
+                <a href="{{ url_for('register') }}">ユーザー登録</a>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="flashes">
+                {% for category, message in messages %}
+                    <li class="{{ category }}">{{ message }}</li>
+                {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}ログイン{% endblock %}
+
+{% block content %}
+    <h1>ログイン</h1>
+    <form action="" method="post" novalidate>
+        {{ form.hidden_tag() }}
+
+        <div class="form-group">
+            {{ form.email.label }}<br>
+            {{ form.email(size=40) }}<br>
+            {% if form.email.errors %}
+                <ul class="form-error">
+                    {% for error in form.email.errors %}<li>{{ error }}</li>{% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            {{ form.password.label }}<br>
+            {{ form.password(size=40) }}<br>
+            {% if form.password.errors %}
+                <ul class="form-error">
+                    {% for error in form.password.errors %}<li>{{ error }}</li>{% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            {{ form.remember_me() }} {{ form.remember_me.label }}
+        </div>
+
+        <div class="form-group">
+            {{ form.submit(class="submit-button") }}
+        </div>
+        <div class="form-group">
+            <a class="btn btn-secondary" href="{{ url_for('google.login') }}" style="display:inline-block; padding:8px 18px; border-radius:6px; text-decoration:none;">
+                <i class="fa-brands fa-google"></i>&nbsp;Google でログイン
+            </a>
+        </div>
+    </form>
+    <p>アカウントをお持ちでないですか？ <a href="{{ url_for('register') }}">ユーザー登録はこちら</a></p>
+{% endblock %}

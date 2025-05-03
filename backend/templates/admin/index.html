@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>chachat Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+  <style>
+    :root {
+      --primary-gradient: linear-gradient(135deg, #F2D1C9, #E6AFAF);
+      --primary-color: #E6AFAF;
+      --secondary-color: #F2D1C9;
+      --sidebar-bg: #FDF0F2;
+      --content-bg: #ffffff;
+      --text-color: #4a4a4a;
+      --border-color: #EED3D3;
+      --hover-bg: #F9EDEE;
+      --button-text-color: #ffffff;
+      --danger-color: #dc3545;
+      --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    body { font-family: var(--font-family); margin: 0; background-color: #f0f0f0; color: var(--text-color); display: flex; height: 100vh; overflow: hidden; }
+    .sidebar { width: 220px; background-color: var(--sidebar-bg); padding: 20px 0; flex-shrink: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border-color); }
+    .sidebar-header { padding: 0 20px 20px 20px; font-size: 1.4rem; font-weight: bold; border-bottom: 1px solid var(--border-color); margin-bottom: 15px; color: var(--primary-color);}
+    .sidebar-menu { list-style: none; padding: 0; margin: 0; }
+    .sidebar-menu li a { display: flex; align-items: center; padding: 12px 20px; text-decoration: none; color: var(--text-color); border-radius: 5px; margin: 5px 10px; transition: background-color 0.2s, color 0.2s; }
+    .sidebar-menu li a:hover { background-color: var(--hover-bg); }
+    .sidebar-menu li a.active { background-color: var(--primary-color); color: var(--button-text-color); font-weight: 500; }
+    .sidebar-menu li a i { margin-right: 12px; width: 20px; text-align: center; }
+    .main-content { flex-grow: 1; padding: 30px; overflow-y: auto; background-color: var(--content-bg); }
+    .content-section { display: none; animation: fadeIn 0.5s; }
+    .content-section.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    h2 { border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 20px; font-size: 1.5rem; color: #555; display: flex; align-items: center; gap: 8px;}
+    h3 { margin-top: 25px; margin-bottom: 15px; font-size: 1.2rem; color: #666;}
+    label { display: block; margin-bottom: 6px; font-weight: 500; color: #555; }
+    /* ▼▼▼ input type="email", "password" のスタイルも追加 ▼▼▼ */
+    input[type="text"], input[type="file"], textarea, input[type="email"], input[type="password"] { width: calc(100% - 24px); padding: 10px 12px; margin-bottom: 15px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; font-family: inherit; font-size: 0.95rem; transition: border-color 0.2s, box-shadow 0.2s; }
+    input[type="text"]:focus, input[type="file"]:focus, textarea:focus, input[type="email"]:focus, input[type="password"]:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 2px rgba(183, 110, 121, 0.3); }
+    textarea { min-height: 80px; resize: vertical; }
+    button { padding: 10px 18px; background-color: var(--primary-color); color: var(--button-text-color); border: none; border-radius: 6px; cursor: pointer; margin-right: 8px; font-size: 0.95rem; font-weight: 500; transition: background-color 0.2s, opacity 0.2s; }
+    button:hover { opacity: 0.9; }
+    button:disabled { background-color: #ccc; cursor: not-allowed; }
+    button.secondary { background-color: #6c757d; }
+    button.secondary:hover { background-color: #5a6268; }
+    button.danger { background-color: var(--danger-color); }
+    button.danger:hover { background-color: #c82333; }
+    /* === Watch (Push‑Notify) ボタン === */
+    .watch-btn{
+      padding: 8px 14px;
+      border: 2px solid var(--primary-color);
+      border-radius: 10px;
+      background-color: var(--secondary-color);
+      font-size: .8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color .25s, color .25s, opacity .25s;
+    }
+    .watch-btn.on{
+      background-color: var(--primary-color);
+      color: #fff;
+    }
+    .watch-btn.off{
+      background-color: #e9dada;
+      color: #6c6c6c;
+      opacity:.7;
+    }
+    .watch-btn:hover{ opacity:.9; }
+    input[type="color"] { width: 40px; height: 30px; padding: 0 2px; vertical-align: middle; margin-left: 10px; border: 1px solid #ccc; cursor: pointer; }
+    .color-setting { display: flex; align-items: center; margin-bottom: 15px; }
+    .color-setting label { margin-bottom: 0; margin-right: 8px; }
+    .color-value { font-family: monospace; margin-left: 5px; background-color: #eee; padding: 2px 5px; border-radius: 3px; font-size: 0.9em;}
+    .icon-setting-area { margin-bottom: 20px; }
+    .icon-upload-area { display: flex; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;}
+    .icon-upload-area label.file-select-button { margin-bottom: 0; font-weight: normal; }
+    #aiIconFileInput { display: none; }
+    .file-select-button { padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; background-color: #eee; font-size: 0.9em; }
+    .file-select-button:hover { background-color: #ddd; }
+    #iconFileStatus { margin-left: 5px; font-size: 0.9em; font-style: italic; }
+    #cropperContainer { width: 100%; max-width: 300px; height: 300px; margin-top: 10px; margin-bottom: 10px; border: 1px solid var(--border-color); display: none; background-color: #f0f0f0; }
+    #cropperImage { display: block; max-width: 100%; }
+    .crop-controls { margin-top: 10px; display: none; }
+    .preview-area { margin-top: 10px; display: flex; align-items: center; gap: 10px; }
+    .preview-icon { max-height: 40px; vertical-align: middle; display: none; border: 1px solid #ddd; padding: 2px; border-radius: 4px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.1); margin-left: 0;}
+    #iconUploadStatus { font-size: 0.9em; font-style: italic; }
+    .message-area { margin-top: 15px; padding: 12px; border-radius: 6px; border: 1px solid transparent; display: none; font-size: 0.9rem; }
+    .info { background-color: #e2f3fe; color: #0c5464; border-color: #bce8f1; }
+    .success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
+    .error { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9rem; }
+    th, td { border: 1px solid var(--border-color); padding: 10px 12px; text-align: left; vertical-align: top; word-break: break-all; }
+    th { background-color: var(--sidebar-bg); font-weight: 500; }
+    .source-name { cursor: pointer; color: var(--primary-color); text-decoration: underline; }
+    .source-name:hover { filter: brightness(1.2); }
+    #sourceDetailContent { background-color: #f8f9fa; border: 1px solid var(--border-color); padding: 15px; margin-top: 10px; white-space: pre-wrap; word-wrap: break-word; max-height: 300px; overflow-y: auto; font-size: 0.85rem; }
+    #sourceDetailContent img { max-width: 100%; height: auto; border: 1px solid #ccc; margin: 5px 0; display: block; border-radius: 4px; }
+    td.actions { width: 80px; text-align: center; }
+    hr { margin: 25px 0; border: 0; border-top: 1px solid #eee; }
+    /* ▼▼▼ 読み取り専用入力欄のスタイル ▼▼▼ */
+    input:read-only:disabled { background-color: #eee; cursor: not-allowed; }
+    /* ▲▲▲ スタイルここまで ▲▲▲ */
+    
+    body { background-color: #f7f9fc; }
+    .sidebar { background-color: #ffffff; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .sidebar-menu li a { border-radius: 8px; }
+    .sidebar-menu li a.active, .sidebar-menu li a:hover { background-color: #4e73df; color: #ffffff; }
+    .main-content { background-color: transparent; }
+    .content-section { background-color: #ffffff; border-radius: 10px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+    button { border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    input[type="text"], input[type="file"], textarea, input[type="email"], input[type="password"] {
+      border-radius: 8px;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+    }
+    h2, h3 { color: #4e73df; }
+    
+    /* 追加: シンプルで可愛い管理画面スタイル */
+    :root {
+      --primary-color: #E6AFAF;
+      --accent-color: #F2D1C9;
+      --bg-color: #FDF0F2;
+      --text-color: #4a4a4a;
+      --border-color: #EED3D3;
+      --shadow-color: rgba(0, 0, 0, 0.1);
+    }
+    
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    .sidebar {
+      background-color: #ffffff;
+      box-shadow: 0 4px 8px var(--shadow-color);
+      border-radius: 10px;
+      margin: 10px;
+    }
+    
+    .sidebar-menu li a {
+      border-radius: 12px;
+      margin: 6px;
+      padding: 10px 15px;
+      transition: transform 0.2s ease;
+    }
+    
+    .sidebar-menu li a.active, .sidebar-menu li a:hover {
+      background-color: var(--primary-color);
+      color: white;
+      transform: translateX(5px);
+    }
+    
+    .content-section {
+      background-color: #ffffff;
+      padding: 25px;
+      border-radius: 15px;
+      box-shadow: 0 6px 12px var(--shadow-color);
+      margin: 10px;
+    }
+    
+    button {
+      background-color: var(--primary-color);
+      color: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px var(--shadow-color);
+    }
+    
+    button.secondary {
+      background-color: var(--accent-color);
+      color: #333;
+    }
+    
+    input[type="text"], textarea, input[type="file"], input[type="email"], input[type="password"] {
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      padding: 12px;
+      box-shadow: inset 0 2px 4px var(--shadow-color);
+    }
+    
+    h2, h3 {
+      color: var(--primary-color);
+      font-weight: 600;
+    }
+    
+    label {
+      color: var(--text-color);
+      font-weight: 600;
+    }
+    
+    .preview-icon {
+      border-radius: 8px;
+      box-shadow: 0 3px 6px var(--shadow-color);
+    }
+    
+    .message-area {
+      border-radius: 10px;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+      <div class="sidebar-header">chachat Admin</div>
+      <ul class="sidebar-menu">
+          <li><a href="#settings" class="active" onclick="showSection('settings', this)"><i class="fa-solid fa-robot"></i> チャットボット設定</a></li>
+          <li><a href="#knowledge" onclick="showSection('knowledge', this)"><i class="fa-solid fa-book-medical"></i> ナレッジ登録</a></li>
+          <li><a href="#sources" onclick="showSection('sources', this)"><i class="fa-solid fa-list"></i> ソース一覧</a></li>
+          <li><a href="#chat-test" onclick="showSection('chat-test', this)"><i class="fa-solid fa-message"></i> チャットテスト</a></li>
+          <li><a href="#chat-history" onclick="showSection('chat-history', this)"><i class="fa-solid fa-comments"></i> チャット履歴</a></li>
+          <li><a href="#integration" onclick="showSection('integration', this)"><i class="fa-solid fa-plug"></i> システム連携</a></li>
+          <li><a href="#user-settings" onclick="showSection('user-settings', this)"><i class="fa-solid fa-user-gear"></i> ユーザー設定</a></li>
+      </ul>
+  </div>
+  <div class="main-content">
+      <div id="section-settings" class="content-section active">
+          <h2><i class="fa-solid fa-robot"></i> チャットボット設定</h2>
+          <!-- ... (既存のチャットボット設定の中身は変更なし) ... -->
+          <h3>基本設定</h3>
+          <div><label for="aiNameInput">AIの名前:</label><input type="text" id="aiNameInput" placeholder="例: AIアシスタント 彩"></div>
+          <div class="icon-setting-area">
+              <label>AIのアイコン:</label>
+              <div class="icon-upload-area">
+                  <label for="aiIconFileInput" class="file-select-button">画像ファイルを選択...</label>
+                  <input type="file" id="aiIconFileInput" accept="image/png, image/jpeg, image/gif, image/webp">
+                  <span id="iconFileStatus"></span>
+              </div>
+              <div id="cropperContainer"><img id="cropperImage" src="" alt="切り抜き対象"></div>
+              <div class="crop-controls"><button onclick="confirmCrop()" class="secondary">切り抜き範囲を確定</button></div>
+              <div class="preview-area">
+                  <label>プレビュー:</label>
+                  <img id="aiIconPreview" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="プレビュー" class="preview-icon">
+                  <button onclick="uploadCroppedIcon()" id="uploadIconButton" disabled>確定した画像をアップロード</button>
+                  <span id="iconUploadStatus"></span>
+              </div>
+               <small>（画像をアップロードした後、「基本設定を保存」を押してください）</small>
+          </div>
+          <div class="color-setting"><label for="themeColorHeaderInput">ヘッダー色:</label><span id="themeColorHeaderValue" class="color-value">#C8A2C8</span><input type="color" id="themeColorHeaderInput" value="#C8A2C8"></div>
+          <div class="color-setting"><label for="themeColorUserInput">ユーザー吹き出し色:</label><span id="themeColorUserValue" class="color-value">#B76E79</span><input type="color" id="themeColorUserInput" value="#B76E79"></div>
+          <div>
+              <label for="initialMessageInput">初期メッセージ:</label>
+              <textarea id="initialMessageInput" rows="3" placeholder="チャット開始時に最初に表示されるメッセージ"></textarea>
+          </div>
+          <button onclick="saveChatbotSettings()">基本設定を保存</button>
+          <div id="settingMessageArea" class="message-area"></div>
+          <hr>
+          <h3>プロンプト設定</h3>
+          <div><label for="promptRole">役割 (Role):</label><textarea id="promptRole" placeholder="例: あなたは〇〇会社の製品について回答するサポート担当者です。"></textarea></div>
+          <div><label for="promptTask">指示 (Task):</label><textarea id="promptTask" placeholder="例: 提供された情報のみに基づき、簡潔かつ正確に答えてください。不明な点は「わかりません」と回答してください。"></textarea></div>
+          <button onclick="savePrompts()">プロンプト設定を保存</button>
+          <div id="promptMessageArea" class="message-area"></div>
+      </div>
+      <div id="section-chat-history" class="content-section" style="display:flex; gap:20px;">
+  
+        <div id="sessionTabs" style="width:30%; padding:10px; border-right:1px solid #dee2e6; overflow-y:auto; max-height:600px;">
+          <button onclick="loadChatHistory()" class="secondary" style="margin-bottom:15px;">履歴を読み込む</button>
+          <!-- セッションタブがここに動的に追加されます -->
+        </div>
+  
+        <div style="width:70%; padding:10px;">
+          <div id="chatHistoryContainer" style="max-height:600px; overflow-y:auto; padding:10px; border: 1px solid #dee2e6; border-radius: 6px; background-color: #f8f9fa;">
+            チャット履歴を読み込んでください。
+          </div>
+          <div id="chatHistoryMessageArea" class="message-area"></div>
+        </div>
+  
+      </div>
+      <div id="section-knowledge" class="content-section">
+          <h2><i class="fa-solid fa-book-medical"></i> ナレッジ登録</h2>
+          <!-- ... (既存のナレッジ登録の中身は変更なし) ... -->
+          <p>(同じソース名は上書きされます)</p>
+          <div><h3>URLから登録</h3><label for="urlInput">URL:</label><input type="text" id="urlInput" placeholder="https://example.com"><button onclick="registerUrl()">URL登録/上書き</button></div>
+          <hr>
+          <div><h3>ファイルから登録</h3><label for="fileInput">ファイル選択 (txt, pdf, docx):</label><input type="file" id="fileInput" accept=".txt,.pdf,.docx,.xls,.xlsx"><button onclick="uploadFile()">ファイル登録/上書き</button></div>
+          <hr>
+          <div>
+            <h3>Google Drive から登録</h3>
+            <p>共有リンク（または <code>file/d/FILE_ID</code> 部分）を入力してください。</p>
+            <div style="display:flex;gap:8px;max-width:600px;">
+              <input id="gdriveInput" type="text"
+                     placeholder="https://drive.google.com/file/d/FILE_ID/view?usp=sharing"
+                     style="flex:1;padding:8px;border:1px solid #ccc;border-radius:6px;">
+              <button id="gdriveUploadBtn" class="btn btn-primary">Drive登録/上書き</button>
+            </div>
+            <div id="gdriveResult" style="margin-top:8px;color:#b76e79;"></div>
+          </div>
+          <div id="messageArea" class="message-area"></div>
+      </div>
+      <div id="section-sources" class="content-section">
+          <h2><i class="fa-solid fa-list"></i> ソース一覧</h2>
+          <button onclick="loadSources()" class="secondary">一覧を更新</button>
+          <table id="sourcesTable"><thead><tr><th>ソース名 (クリックで詳細)</th><th>登録チャンク数</th><th>アクション</th></tr></thead><tbody id="sourcesTableBody"><tr><td colspan="3">読み込み中...</td></tr></tbody></table>
+          <div id="sourceMessageArea" class="message-area"></div>
+          <div id="sourceDetailArea" style="display: none;"><h3 id="sourceDetailTitle">ソース詳細</h3><div id="sourceDetailContent"></div></div>
+      </div>
+      <!-- System Integration Section -->
+      <div id="section-integration" class="content-section" style="display:none;">
+          <h2><i class="fa-solid fa-plug"></i> システム連携</h2>
+
+          <h3>Slack 連携</h3>
+          <!-- 接続状態表示 -->
+          <div id="slackStatusDisplay" style="margin:12px 0;font-weight:600;">
+            Slack 接続状態:
+            <span id="slackStatusBadge" style="padding:4px 8px;border-radius:8px;background:#e0e0e0;color:#555;">
+              未接続
+            </span>
+          </div>
+          <p>Slack ワークスペースとの連携に必要な <b>Client ID</b> と <b>Client Secret</b> を入力し、「Slack にインストール」を押してください。</p>
+
+          <label for="slackClientIdInput">Client&nbsp;ID:</label>
+          <input type="text" id="slackClientIdInput" placeholder="1234567890.1234567890123">
+
+          <label for="slackClientSecretInput">Client&nbsp;Secret:</label>
+          <input type="password" id="slackClientSecretInput" placeholder="********">
+
+          <button onclick="saveSlackCreds()">保存</button>
+          <button class="secondary" onclick="startSlackInstall()">Slack にインストール</button>
+
+          <div id="slackIntegrationMessage" class="message-area"></div>
+      </div>
+      <div id="section-user-settings" class="content-section">
+          <h2><i class="fa-solid fa-user-gear"></i> ユーザー設定</h2>
+          <div id="userSettingMessageArea" class="message-area"></div>
+          <h3>メールアドレス変更</h3>
+          <div class="form-group">
+              <label for="currentEmail">現在のメールアドレス:</label>
+              <input type="text" id="currentEmail" readonly disabled>
+          </div>
+          <div class="form-group">
+              <label for="newEmail">新しいメールアドレス:</label>
+              <input type="email" id="newEmail" placeholder="新しいメールアドレスを入力">
+          </div>
+          <button onclick="updateEmail()">メールアドレスを変更</button>
+          <hr>
+          <h3>パスワード変更</h3>
+          <div class="form-group">
+              <label for="currentPassword">現在のパスワード:</label>
+              <input type="password" id="currentPassword" placeholder="現在のパスワードを入力">
+          </div>
+          <div class="form-group">
+              <label for="newPassword">新しいパスワード:</label>
+              <input type="password" id="newPassword" placeholder="新しいパスワードを入力">
+          </div>
+          <div class="form-group">
+              <label for="newPasswordConfirm">新しいパスワード (確認):</label>
+              <input type="password" id="newPasswordConfirm" placeholder="新しいパスワードを再入力">
+          </div>
+          <button onclick="updatePassword()">パスワードを変更</button>
+          <hr>
+          <h3>ログアウト</h3>
+          <button onclick="logoutUser()" class="danger">ログアウトする</button>
+      </div>
+    <!-- Chat Test Section -->
+    <div id="section-chat-test" class="content-section" style="display:none;">
+        <h2><i class="fa-solid fa-message"></i> チャットテスト</h2>
+        <iframe src="/" style="width:100%;height:650px;border:1px solid #dee2e6;border-radius:8px;"></iframe>
+    </div>
+  </div>
+
+  <script>
+    // --- グローバル変数・要素取得 (変更なし) ---
+    const messageArea = document.getElementById('messageArea');
+    const sourceMessageArea = document.getElementById('sourceMessageArea');
+    const promptMessageArea = document.getElementById('promptMessageArea');
+    const settingMessageArea = document.getElementById('settingMessageArea');
+    const userSettingMessageArea = document.getElementById('userSettingMessageArea');
+    const sourcesTableBody = document.getElementById('sourcesTableBody');
+    const sourceDetailArea = document.getElementById('sourceDetailArea');
+    const sourceDetailTitle = document.getElementById('sourceDetailTitle');
+    const sourceDetailContent = document.getElementById('sourceDetailContent');
+    const promptRoleInput = document.getElementById('promptRole');
+    const promptTaskInput = document.getElementById('promptTask');
+    const aiNameInput = document.getElementById('aiNameInput');
+    const aiIconFileInput = document.getElementById('aiIconFileInput');
+    const aiIconPreview = document.getElementById('aiIconPreview');
+    const uploadIconButton = document.getElementById('uploadIconButton');
+    const iconUploadStatus = document.getElementById('iconUploadStatus');
+    const iconFileStatus = document.getElementById('iconFileStatus');
+    const themeColorHeaderInput = document.getElementById('themeColorHeaderInput');
+    const themeColorUserInput = document.getElementById('themeColorUserInput');
+    const themeColorHeaderValue = document.getElementById('themeColorHeaderValue');
+    const themeColorUserValue = document.getElementById('themeColorUserValue');
+    const initialMessageInput = document.getElementById('initialMessageInput');
+    const cropperContainer = document.getElementById('cropperContainer');
+    const cropperImage = document.getElementById('cropperImage');
+    const cropControls = document.querySelector('.crop-controls');
+    const currentEmailInput = document.getElementById('currentEmail');
+    const newEmailInput = document.getElementById('newEmail');
+    const currentPasswordInput = document.getElementById('currentPassword');
+    const newPasswordInput = document.getElementById('newPassword');
+    const newPasswordConfirmInput = document.getElementById('newPasswordConfirm');
+    let cropper = null;
+    let croppedImageBlob = null;
+    const apiUrlBase = window.location.origin;
+
+    // --- 画面切り替え関数 (変更なし) ---
+    function showSection(sectionId, clickedLink) {
+        document.querySelectorAll('.content-section').forEach(section => {
+            section.classList.remove('active');
+            section.style.display = 'none';
+        });
+        const activeSection = document.getElementById(`section-${sectionId}`);
+        if (activeSection) {
+            activeSection.classList.add('active');
+            activeSection.style.display = (sectionId === 'chat-history') ? 'flex' : 'block';
+        }
+        document.querySelectorAll('.sidebar-menu li a').forEach(link => link.classList.remove('active'));
+        if (clickedLink) clickedLink.classList.add('active');
+        if (sectionId === 'user-settings') { loadCurrentUserInfo(); }
+        else if (sectionId === 'sources') { loadSources(); }
+        else if (sectionId === 'settings') { loadChatbotSettings(); loadPrompts(); }
+        else if (sectionId === 'chat-history') { loadChatHistory(); }
+        else if (sectionId === 'chat-test') { /* no extra init needed */ }
+        else if (sectionId === 'integration') {
+            loadSlackStatus();
+        }
+    }
+
+    // --- メッセージ表示関数 (変更なし) ---
+    function showMessage(areaElement, message, type = 'info', duration = 5000) {
+        if (!areaElement) { console.warn("showMessage: areaElement not found for message:", message); return; }
+        areaElement.textContent = message; areaElement.className = `message-area ${type}`; areaElement.style.display = 'block';
+        requestAnimationFrame(() => { if (type !== 'error' && duration > 0) { setTimeout(() => { if (areaElement.textContent === message) { areaElement.style.display = 'none'; areaElement.textContent = '';}}, duration); }});
+    }
+
+    // --- 現在のユーザー情報読み込み関数 (変更なし) ---
+    async function loadCurrentUserInfo() {
+        showMessage(userSettingMessageArea, 'ユーザー情報読込中...', 'info', 0);
+        try {
+            const res = await fetch(`${apiUrlBase}/api/user/info`);
+            const data = await res.json();
+            if (res.ok && data.status === 'ok') {
+                currentEmailInput.value = data.email || '取得失敗';
+                showMessage(userSettingMessageArea, 'ユーザー情報読み込み完了', 'success');
+            } else {
+                currentEmailInput.value = '取得失敗';
+                showMessage(userSettingMessageArea, `ユーザー情報読込エラー: ${data.message || '不明'}`, 'error');
+            }
+        } catch (error) {
+            currentEmailInput.value = '通信エラー';
+            showMessage(userSettingMessageArea, `通信エラー: ${error}`, 'error');
+            console.error("Load User Info Error:", error);
+        }
+    }
+
+    // --- ナレッジ登録関連 (変更なし) ---
+    async function registerUrl() { const urlInput = document.getElementById('urlInput'); const url = urlInput.value.trim(); if (!url) { showMessage(messageArea, 'URL入力', 'error'); return; } showMessage(messageArea, 'URL処理中...', 'info', 0); urlInput.disabled = true; try { const res = await fetch(`${apiUrlBase}/api/url`, { method: 'POST', headers: { 'Content-Type': 'application/json'}, body: JSON.stringify({ url }) }); const data = await res.json(); if (res.ok && data.status === 'ok') { showMessage(messageArea, data.message || 'URL登録/上書き成功', 'success'); urlInput.value = ''; if (document.getElementById('section-sources').classList.contains('active')) loadSources(); } else { showMessage(messageArea, `URLエラー: ${data.message || res.statusText || '不明'}`, 'error'); } } catch (error) { showMessage(messageArea, `通信エラー: ${error}`, 'error'); console.error("URL Reg Error:", error); } finally { urlInput.disabled = false; } }
+    async function uploadFile() { const fileInput = document.getElementById('fileInput'); const file = fileInput.files[0]; if (!file) { showMessage(messageArea, 'ファイル選択', 'error'); return; } showMessage(messageArea, 'ファイル処理中...', 'info', 0); fileInput.disabled = true; const formData = new FormData(); formData.append('file', file); try { const res = await fetch(`${apiUrlBase}/api/upload`, { method: 'POST', body: formData }); const data = await res.json(); if (res.ok && data.status === 'ok') { showMessage(messageArea, data.message || 'ファイル登録/上書き成功', 'success'); fileInput.value = ''; if (document.getElementById('section-sources').classList.contains('active')) loadSources(); } else { showMessage(messageArea, `ファイルエラー: ${data.message || res.statusText || '不明'}`, 'error'); } } catch (error) { showMessage(messageArea, `通信エラー: ${error}`, 'error'); console.error("File Up Error:", error); } finally { fileInput.disabled = false; } }
+
+    // --- Google Drive upload (auto detect doc/sheet) ---
+    document.getElementById("gdriveUploadBtn").addEventListener("click", async () => {
+        const input  = document.getElementById("gdriveInput");
+        const status = document.getElementById("gdriveResult");
+        status.textContent = "";
+        let link = input.value.trim();
+        if (!link) { status.textContent = "リンクを入力してください。"; return; }
+
+        // ID 抽出 .../d/<ID>/ もしくは id=<ID>
+        const m = link.match(/\/(?:spreadsheets\/|document\/|file\/)?d\/([A-Za-z0-9_-]{10,})/);
+        const fileId = m ? m[1] : link;   // 純粋IDも許容
+        if (!fileId) { status.textContent = "ファイルIDを抽出できませんでした。"; return; }
+
+        // 種別判定: /spreadsheets/ を含むリンク → Sheets、それ以外は Docs
+        const endpoint = link.includes("/spreadsheets/")
+            ? "/api/google/sheet"
+            : "/api/google/doc";
+
+        status.textContent = "登録中…";
+        try {
+            const res  = await fetch(`${apiUrlBase}${endpoint}`, {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ file_id: fileId })
+            });
+            const data = await res.json();
+            if (res.ok && data.status === "ok") {
+                status.style.color = "green";
+                status.textContent = "Google ファイルを登録しました 🎉";
+                input.value = "";
+                // ソース一覧を開いている場合は自動更新
+                if (document.getElementById('section-sources').classList.contains('active')) {
+                    loadSources();
+                }
+            } else {
+                status.style.color = "red";
+                status.textContent = data.message || "登録に失敗しました。";
+            }
+        } catch (e) {
+            console.error(e);
+            status.style.color = "red";
+            status.textContent = "通信エラーが発生しました。";
+        }
+    });
+
+    // --- ソース一覧関連 ---
+    async function loadSources() { /* (変更なし) */ showMessage(sourceMessageArea, 'ソース取得中...', 'info', 0); sourcesTableBody.innerHTML = '<tr><td colspan="3">読込中...</td></tr>'; sourceDetailArea.style.display = 'none'; try { const res = await fetch(`${apiUrlBase}/api/sources`, { credentials: "include" }); const data = await res.json(); if (res.ok && data.status === 'ok') { sourcesTableBody.innerHTML = ''; const sources = data.sources; if (Object.keys(sources).length === 0) { sourcesTableBody.innerHTML = '<tr><td colspan="3">登録ソースなし</td></tr>'; showMessage(sourceMessageArea, '登録ソースなし', 'info'); } else { const sortedSources = Object.entries(sources).sort((a, b) => a[0].localeCompare(b[0])); for (const [sourceName, chunkCount] of sortedSources) { const row = sourcesTableBody.insertRow(); const cell1 = row.insertCell(); const cell2 = row.insertCell(); const cell3 = row.insertCell(); const sourceLink = document.createElement('span'); sourceLink.className = 'source-name'; sourceLink.textContent = sourceName; sourceLink.onclick = () => showSourceDetails(sourceName); cell1.appendChild(sourceLink); cell2.textContent = chunkCount; cell3.classList.add('actions'); const deleteButton = document.createElement('button'); deleteButton.textContent = '削除'; deleteButton.className = 'danger'; deleteButton.onclick = () => deleteSource(sourceName); cell3.appendChild(deleteButton);
+            // 監視 ON/OFF ボタン（Google Sheet のみ）
+            if (sourceName.startsWith("gsheet:")) {
+                const watchBtn = document.createElement('button');
+                watchBtn.textContent = '監視';
+                watchBtn.className = 'watch-btn off';
+                const fileId = sourceName.slice(7);   // "gsheet:" を除く
+                watchBtn.onclick = (ev) => toggleWatch(ev, fileId);
+                cell3.appendChild(watchBtn);
+            }
+        } showMessage(sourceMessageArea, `一覧更新 (${Object.keys(sources).length}件)`, 'success'); } } else { showMessage(sourceMessageArea, `一覧取得エラー: ${data.message || res.statusText || '不明'}`, 'error'); sourcesTableBody.innerHTML = '<tr><td colspan="3">一覧取得失敗</td></tr>'; } } catch (error) { showMessage(sourceMessageArea, `通信エラー: ${error}`, 'error'); sourcesTableBody.innerHTML = '<tr><td colspan="3">一覧取得エラー</td></tr>'; console.error("Load Src Error:", error); } }
+    // ▼▼▼ showSourceDetails にログ追加 ▼▼▼
+    async function showSourceDetails(sourceName) {
+        // --- Google Sheet quick preview ---
+        if (sourceName.startsWith("gsheet:")) {
+            // extract the fileId after "gsheet:"
+            const fileId = sourceName.slice(7);
+            previewSheet(fileId);            // reuse previewSheet to draw a table
+            return;                          // skip normal chunk preview
+        }
+        console.log("--- showSourceDetails ---"); // ★ログ追加
+        console.log("Original sourceName:", sourceName); // ★ログ追加
+        sourceDetailTitle.textContent = `ソース詳細: ${sourceName}`;
+        sourceDetailContent.innerHTML = '<div>読込中...</div>';
+        sourceDetailArea.style.display = 'block';
+        // ★★★ URLパスとして安全な形にエンコードする ★★★
+        const encodedSourceName = encodeURIComponent(sourceName);
+        console.log("Encoded sourceName for API call:", encodedSourceName); // ★ログ追加
+        const limit = 50;
+        try {
+        const res = await fetch(`${apiUrlBase}/api/documents/${encodedSourceName}?limit=${limit}`, { credentials: "include" });
+            console.log("API Response Status:", res.status); // ★ログ追加
+            const data = await res.json();
+            // ★★★ APIからのレスポンス全体をログに出力 ★★★
+            console.log("Full API Response Data:", data);
+
+            // レスポンス形式を確認し、documents 配列を取得
+            if (res.ok && data.status === 'ok' && data.documents) { // ★ data.documents の存在も確認
+                const documents = data.documents;
+                console.log(`Received ${documents.length} documents from API.`); // ★ログ追加
+
+                if (documents.length > 0) {
+                    sourceDetailContent.innerHTML = `<h4>取得チャンク (最大${limit}件):</h4>`;
+                    documents.forEach((doc, index) => {
+                        // console.log(`Processing chunk ${index + 1}:`, doc); // 必要ならチャンク内容もログ出力
+                        const chunkDiv = document.createElement('div');
+                        chunkDiv.style.borderTop = '1px dashed #ccc';
+                        chunkDiv.style.marginTop = '10px';
+                        chunkDiv.style.paddingTop = '10px';
+                        const chunkTitle = document.createElement('h5');
+                        chunkTitle.textContent = `--- チャンク ${index + 1} ---`;
+                        chunkDiv.appendChild(chunkTitle);
+                        const processedDoc = doc.replace(/\[画像(?::\s*([^\]\n]+?))?\](?:\(([^)\n]+?)\))?/g, (match, altText, imgSrc) => { const alt = altText ? altText.trim() : ' '; if (imgSrc && imgSrc.trim().toLowerCase().startsWith('http')) { return `<img src="${imgSrc.trim()}" alt="${alt}" title="${alt}" loading="lazy">`; } else if (alt.trim()) { return `[画像: ${alt}]`; } else { return `[画像]`; } });
+                        const contentPre = document.createElement('pre');
+                        contentPre.style.whiteSpace = 'pre-wrap';
+                        contentPre.style.wordWrap = 'break-word';
+                        contentPre.innerHTML = processedDoc; // processedDoc を表示
+                        chunkDiv.appendChild(contentPre);
+                        sourceDetailContent.appendChild(chunkDiv);
+                    });
+                } else {
+                    // APIからは成功応答だがdocumentsが空配列の場合
+                    sourceDetailContent.textContent = '関連チャンクなし (データ0件)';
+                    console.log("API returned success but documents array is empty."); // ★ログ追加
+                }
+            } else {
+                // API自体がエラーを返した場合、または期待した形式でない場合
+                sourceDetailContent.textContent = `チャンク取得エラー: ${data.message || (res.ok ? 'レスポンス形式不正' : res.statusText) || '不明'}`;
+                sourceDetailContent.style.color = '#721c24';
+                 console.error("API Error or Invalid Response Format:", data); // ★ログ追加
+            }
+        } catch (error) {
+            sourceDetailContent.textContent = `通信エラー: ${error}`;
+            sourceDetailContent.style.color = '#721c24';
+            console.error("Fetch Error in showSourceDetails:", error); // ★エラー詳細ログ
+        }
+    }
+    // ▲▲▲ showSourceDetails にログ追加 ▲▲▲
+    async function deleteSource(sourceName) { /* (変更なし) */ if (!confirm(`ソース「${sourceName}」削除？`)) { return; } showMessage(sourceMessageArea, `ソース削除中: ${sourceName}`, 'info', 0); const encodedSourceName = encodeURIComponent(sourceName); try { const res = await fetch(`${apiUrlBase}/api/sources/${encodedSourceName}`, { method: 'DELETE', credentials: "include" }); const data = await res.json(); if (res.ok && data.status === 'ok') { showMessage(sourceMessageArea, data.message || '削除成功', 'success'); sourceDetailArea.style.display = 'none'; loadSources(); } else { showMessage(sourceMessageArea, `削除エラー: ${data.message || res.statusText || '不明'}`, 'error'); } } catch (error) { showMessage(sourceMessageArea, `通信エラー: ${error}`, 'error'); console.error("Del Src Error:", error); } }
+
+    // --- プロンプト設定関連 (変更なし) ---
+    async function loadPrompts() { /* (変更なし) */ showMessage(promptMessageArea, 'プロンプト読込中...', 'info', 0); try{ const res = await fetch(`${apiUrlBase}/api/prompts`, { credentials: "include" }); const data = await res.json(); if (res.ok && data.status === 'ok'){ promptRoleInput.value = data.prompts.role || ''; promptTaskInput.value = data.prompts.task || ''; showMessage(promptMessageArea, 'プロンプト読込完了', 'success'); } else { showMessage(promptMessageArea, `読込エラー: ${data.message || res.statusText || '不明'}`, 'error'); }} catch(error){ showMessage(promptMessageArea, `通信エラー: ${error}`, 'error'); console.error("Load Prompts Error:", error); } }
+    async function savePrompts() { /* (変更なし) */ const role = promptRoleInput.value; const task = promptTaskInput.value; showMessage(promptMessageArea, 'プロンプト保存中...', 'info', 0); try{ const res = await fetch(`${apiUrlBase}/api/prompts`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ role, task }) }); const data = await res.json(); if (res.ok && data.status === 'ok'){ showMessage(promptMessageArea, data.message || 'プロンプト保存完了', 'success'); } else { showMessage(promptMessageArea, `保存エラー: ${data.message || res.statusText || '不明'}`, 'error'); }} catch(error){ showMessage(promptMessageArea, `通信エラー: ${error}`, 'error'); console.error("Save Prompts Error:", error); } }
+
+    // --- チャットボット設定関連 (変更なし) ---
+    async function loadChatbotSettings() { /* (変更なし) */ showMessage(settingMessageArea, 'チャット設定読込中...', 'info', 0); try { const res = await fetch(`${apiUrlBase}/api/settings`, { credentials: "include" }); const data = await res.json(); if (res.ok && data.status === 'ok' && data.settings) { const s = data.settings; aiNameInput.value = s.ai_name || ''; themeColorHeaderInput.value = s.theme_color_header || '#C8A2C8'; themeColorUserInput.value = s.theme_color_user || '#B76E79'; const initialMsgInput = document.getElementById('initialMessageInput'); if (initialMsgInput) initialMsgInput.value = s.initial_message || ''; updateColorValue('themeColorHeaderValue', themeColorHeaderInput.value); updateColorValue('themeColorUserValue', themeColorUserInput.value); resetIconArea(s.ai_icon_url || ''); showMessage(settingMessageArea, 'チャット設定読込完了', 'success'); } else { showMessage(settingMessageArea, `読込エラー: ${data.message || res.statusText || '不明'}`, 'error'); resetIconArea(); } } catch (error) { showMessage(settingMessageArea, `通信エラー: ${error}`, 'error'); console.error("Load Settings Error:", error); resetIconArea(); } }
+    async function saveChatbotSettings() { /* (変更なし) */ const iconUrl = '/static/icons/ai_icon.png'; const initialMsgInput = document.getElementById('initialMessageInput'); const initialMessageValue = initialMsgInput ? initialMsgInput.value.trim() : ''; const settings = { ai_name: aiNameInput.value.trim(), ai_icon_url: iconUrl, theme_color_header: themeColorHeaderInput.value, theme_color_user: themeColorUserInput.value, initial_message: initialMessageValue }; if (!settings.ai_name){ showMessage(settingMessageArea, 'AI名入力必須', 'error'); return; } if (!settings.theme_color_header.match(/^#[0-9a-fA-F]{6}$/)){ showMessage(settingMessageArea, 'ヘッダー色不正', 'error'); return; } if (!settings.theme_color_user.match(/^#[0-9a-fA-F]{6}$/)){ showMessage(settingMessageArea, 'ユーザー色不正', 'error'); return; } if(!settings.initial_message){ showMessage(settingMessageArea, '初期メッセージ入力必須', 'error'); return;} showMessage(settingMessageArea, 'チャット設定保存中...', 'info', 0); try { const res = await fetch(`${apiUrlBase}/api/settings`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(settings) }); const data = await res.json(); if (res.ok && data.status === 'ok'){ showMessage(settingMessageArea, data.message || 'チャット設定保存完了', 'success'); } else { showMessage(settingMessageArea, `保存エラー: ${data.message || res.statusText || '不明'}`, 'error'); } } catch(error){ showMessage(settingMessageArea, `通信エラー: ${error}`, 'error'); console.error("Save Settings Error:", error); } }
+
+    // --- アイコンファイル選択・アップロード関連 (変更なし) ---
+    aiIconFileInput.addEventListener('change', handleIconFileSelect);
+    function handleIconFileSelect(event) { /* (変更なし) */ const file = event.target.files[0]; iconFileStatus.textContent = file ? file.name : ''; croppedImageBlob = null; uploadIconButton.disabled = true; iconUploadStatus.textContent = ''; aiIconPreview.style.display = 'none'; if (cropper) { cropper.destroy(); cropper = null; } cropperContainer.style.display = 'none'; cropControls.style.display = 'none'; if (file && file.type.startsWith('image/')) { const reader = new FileReader(); reader.onload = (e) => { if (cropper) { cropper.destroy(); cropper = null;} cropperImage.src = e.target.result; try { cropper = new Cropper(cropperImage, { aspectRatio: 1 / 1, viewMode: 1, dragMode: 'move', background: false, autoCropArea: 0.8, ready: function(){ cropperContainer.style.display = 'block'; cropControls.style.display = 'block'; } }); } catch(cropperError) { console.error("Cropper init error:", cropperError); showMessage(settingMessageArea, '画像編集初期化エラー', 'error'); resetIconArea(); } }; reader.onerror = (e) => { console.error("FileReader error:", e); showMessage(settingMessageArea, 'ファイル読込失敗', 'error'); resetIconArea(); }; reader.readAsDataURL(file); } else { if (file) { iconUploadStatus.textContent = '画像選択要'; iconUploadStatus.style.color = 'red'; }} }
+    function confirmCrop() { /* (変更なし) */ if (!cropper) return; try { const canvas = cropper.getCroppedCanvas({ width: 256, height: 256, imageSmoothingQuality: 'high' }); if (!canvas) { throw new Error("Canvas取得失敗"); } canvas.toBlob((blob) => { if (blob) { croppedImageBlob = blob; const previewUrl = URL.createObjectURL(blob); aiIconPreview.src = previewUrl; aiIconPreview.style.display = 'inline-block'; uploadIconButton.disabled = false; iconUploadStatus.textContent = '切抜完了。アップロード可'; iconUploadStatus.style.color = 'green'; cropperContainer.style.display = 'none'; cropControls.style.display = 'none'; if (cropper) {cropper.destroy(); cropper = null;} } else { console.error("Blob作成失敗"); iconUploadStatus.textContent = '切抜処理失敗'; iconUploadStatus.style.color = 'red'; uploadIconButton.disabled = true; } }, 'image/png', 0.9); } catch(cropError) { console.error("Crop confirm error:", cropError); showMessage(settingMessageArea, `切抜エラー: ${cropError.message}`, 'error'); uploadIconButton.disabled = true; } }
+    async function uploadCroppedIcon() { /* (変更なし) */ if (!croppedImageBlob) { showMessage(settingMessageArea, '先に画像を切抜確定', 'error'); return; } const formData = new FormData(); formData.append('icon_file', croppedImageBlob, 'ai_icon.png'); showMessage(settingMessageArea, 'アイコンアップロード中...', 'info', 0); uploadIconButton.disabled = true; iconUploadStatus.textContent = 'アップロード中...'; try { const res = await fetch(`${apiUrlBase}/api/upload_icon`, { method: 'POST', body: formData }); const data = await res.json(); if (res.ok && data.status === 'ok') { showMessage(settingMessageArea, data.message || 'アップロード成功！設定を保存してください。', 'success'); if(data.icon_url){ aiIconPreview.src = data.icon_url; aiIconPreview.style.display = 'inline-block'; } aiIconFileInput.value = ''; iconFileStatus.textContent = ''; croppedImageBlob = null; iconUploadStatus.textContent = '完了'; iconUploadStatus.style.color = 'green'; } else { showMessage(settingMessageArea, `アップロードエラー: ${data.message || res.statusText || '不明'}`, 'error'); iconUploadStatus.textContent = '失敗'; iconUploadStatus.style.color = 'red'; } } catch (error) { showMessage(settingMessageArea, `通信エラー: ${error}`, 'error'); iconUploadStatus.textContent = '通信エラー'; iconUploadStatus.style.color = 'red'; console.error("Upload Icon Error:", error); } finally { uploadIconButton.disabled = true; } }
+    function resetIconArea(defaultIconUrl = '') { /* (変更なし) */ if (cropper) { cropper.destroy(); cropper = null; } cropperContainer.style.display = 'none'; cropControls.style.display = 'none'; aiIconFileInput.value = ''; iconFileStatus.textContent = ''; croppedImageBlob = null; uploadIconButton.disabled = true; iconUploadStatus.textContent = ''; const iconUrlToDisplay = defaultIconUrl && defaultIconUrl.startsWith('/static/icons') ? `${defaultIconUrl}?t=${Date.now()}` : ''; aiIconPreview.src = iconUrlToDisplay; aiIconPreview.style.display = iconUrlToDisplay ? 'inline-block' : 'none'; aiIconPreview.onerror = () => { console.warn("Failed icon preview:", iconUrlToDisplay); aiIconPreview.style.display = 'none'; aiIconPreview.src='';}; }
+
+    // --- カラーピッカー (変更なし) ---
+    function updateColorValue(elementId, value) { const span = document.getElementById(elementId); if (span) span.textContent = value; }
+    themeColorHeaderInput.addEventListener('input', (e) => updateColorValue('themeColorHeaderValue', e.target.value));
+    themeColorUserInput.addEventListener('input', (e) => updateColorValue('themeColorUserValue', e.target.value));
+
+    // --- ユーザー設定関連の新しい関数 (変更なし) ---
+    async function updateEmail() { /* (変更なし) */ const newEmail = newEmailInput.value.trim(); if (!newEmail) { showMessage(userSettingMessageArea, '新しいメールアドレスを入力してください。', 'error'); return; } if (!/\S+@\S+\.\S+/.test(newEmail)) { showMessage(userSettingMessageArea, '有効なメールアドレス形式で入力してください。', 'error'); return; } showMessage(userSettingMessageArea, 'メールアドレス変更中...', 'info', 0); try { const res = await fetch(`${apiUrlBase}/api/user/update_email`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ new_email: newEmail }) }); const data = await res.json(); if (res.ok && data.status === 'ok') { showMessage(userSettingMessageArea, data.message || 'メールアドレスを変更しました。', 'success'); currentEmailInput.value = newEmail; newEmailInput.value = ''; } else { showMessage(userSettingMessageArea, `変更エラー: ${data.message || '不明'}`, 'error'); } } catch (error) { showMessage(userSettingMessageArea, `通信エラー: ${error}`, 'error'); console.error("Update Email Error:", error); } }
+    async function updatePassword() { /* (変更なし) */ const currentPassword = currentPasswordInput.value; const newPassword = newPasswordInput.value; const newPasswordConfirm = newPasswordConfirmInput.value; if (!currentPassword || !newPassword || !newPasswordConfirm) { showMessage(userSettingMessageArea, 'すべてのパスワード欄を入力してください。', 'error'); return; } if (newPassword !== newPasswordConfirm) { showMessage(userSettingMessageArea, '新しいパスワードが一致しません。', 'error'); return; } if (newPassword.length < 6) { showMessage(userSettingMessageArea, '新しいパスワードは6文字以上にしてください。', 'error'); return; } showMessage(userSettingMessageArea, 'パスワード変更中...', 'info', 0); try { const res = await fetch(`${apiUrlBase}/api/user/update_password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ current_password: currentPassword, new_password: newPassword, new_password_confirm: newPasswordConfirm }) }); const data = await res.json(); if (res.ok && data.status === 'ok') { showMessage(userSettingMessageArea, data.message || 'パスワードを変更しました。', 'success'); currentPasswordInput.value = ''; newPasswordInput.value = ''; newPasswordConfirmInput.value = ''; } else { showMessage(userSettingMessageArea, `変更エラー: ${data.message || '不明'}`, 'error'); } } catch (error) { showMessage(userSettingMessageArea, `通信エラー: ${error}`, 'error'); console.error("Update Password Error:", error); } }
+    function logoutUser() { /* (変更なし) */ if (confirm("ログアウトしてもよろしいですか？")) { window.location.href = '/logout'; } }
+
+    async function loadChatHistory() {
+      const messageArea = document.getElementById('chatHistoryMessageArea');
+      const chatContainer = document.getElementById('chatHistoryContainer');
+      const sessionTabs = document.getElementById('sessionTabs');
+
+      showMessage(messageArea, 'チャット履歴取得中...', 'info', 0);
+      chatContainer.innerHTML = '読み込み中...';
+      sessionTabs.innerHTML = '';
+
+      try {
+        const res = await fetch(`${apiUrlBase}/api/chat_history`, { credentials: "include" });
+        const data = await res.json();
+
+        if (res.ok && data.status === 'ok') {
+          const sessions = data.sessions;
+          chatContainer.innerHTML = '';
+
+          if (sessions.length === 0) {
+            chatContainer.innerHTML = 'チャット履歴がありません。';
+            showMessage(messageArea, 'チャット履歴はありません', 'info');
+          } else {
+            sessions.reverse().forEach((session) => {
+              const sessionStartTime = session[0].timestamp;
+              const tabDiv = document.createElement('div');
+              tabDiv.textContent = `${sessionStartTime}`;
+              tabDiv.style.padding = '8px';
+              tabDiv.style.borderBottom = '1px solid #ddd';
+              tabDiv.style.cursor = 'pointer';
+              tabDiv.onclick = () => displaySession(session);
+              sessionTabs.appendChild(tabDiv);
+            });
+
+            displaySession(sessions[0]);
+            showMessage(messageArea, `チャット履歴取得完了 (${sessions.length}セッション)`, 'success');
+          }
+        } else {
+          throw new Error(data.message || '取得に失敗しました。');
+        }
+      } catch (error) {
+        showMessage(messageArea, `通信エラー: ${error.message}`, 'error');
+        chatContainer.innerHTML = '取得エラー';
+      }
+    }
+    
+    function displaySession(session) {
+      const chatContainer = document.getElementById('chatHistoryContainer');
+      chatContainer.innerHTML = '';
+  
+      session.forEach(msg => {
+        const messageDiv = document.createElement('div');
+        messageDiv.style.marginBottom = '10px';
+  
+        messageDiv.innerHTML = `
+          <div style="font-size:0.75em;color:#999;margin-bottom:3px;">${msg.timestamp}</div>
+          ${msg.role === 'assistant' ? `<div style="text-align:left;background:#cce5ff;border-radius:12px;padding:8px;margin-bottom:5px;display:inline-block;max-width:80%;">${msg.content}</div>` : ''}
+          ${msg.role === 'user' ? `<div style="text-align:right;background:#e0e0e0;border-radius:12px;padding:8px;display:inline-block;float:right;clear:both;max-width:80%;">${msg.content}</div>` : ''}
+          <div style="clear:both;"></div>
+        `;
+        chatContainer.appendChild(messageDiv);
+      });
+    }
+
+    // --- 初期化処理 (変更なし) ---
+    window.onload = () => { showSection('settings', document.querySelector('.sidebar-menu li a[href="#settings"]')); };
+
+    // --- Drive Push Notification: watch / unwatch ---
+    async function toggleWatch(evt, fileId) {
+        // クリックしたボタンの状態を即時トグル表示
+        const btn = event?.target;
+        if(btn && btn.classList.contains('watch-btn')){
+            btn.classList.toggle('on'); btn.classList.toggle('off');
+        }
+        try {
+            const res = await fetch(`${apiUrlBase}/api/watch_sheet`, {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ file_id: fileId })
+            });
+            const data = await res.json();
+            alert(data.message || (res.ok ? "操作成功" : "操作失敗"));
+            loadSources();   // ボタン状態を更新
+        } catch (e) {
+            console.error(e);
+            alert("通信エラー: " + e);
+        }
+    }
+
+    // --- Sheet Preview (replaced) ---
+    async function previewSheet(fileId) {
+        try {
+            const res = await fetch(`${apiUrlBase}/api/sheet_rows`, {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ file_id: fileId })
+            });
+            const data = await res.json();
+            if (data.status !== "ok") {
+                alert(data.message || "取得失敗"); return;
+            }
+
+            // Draw table inside Source Detail panel
+            sourceDetailTitle.textContent = `シートプレビュー: ${fileId}`;
+            sourceDetailContent.innerHTML = "";
+            const tbl = document.createElement("table");
+            tbl.className = "table table-sm table-striped";
+            const mkRow = arr => {
+                const tr = document.createElement("tr");
+                arr.forEach(c => { const td = document.createElement("td"); td.textContent = c; tr.appendChild(td); });
+                return tr;
+            };
+            if (data.headers.length) tbl.appendChild(mkRow(data.headers));
+            data.rows.forEach(r => tbl.appendChild(mkRow(r)));
+
+            sourceDetailContent.appendChild(tbl);
+            sourceDetailArea.style.display = 'block';
+        } catch (e) {
+            console.error(e);
+            alert("通信エラー: " + e);
+        }
+    }
+    // --- Slack Integration placeholders ---
+    async function saveSlackCreds(){
+        const cid = document.getElementById("slackClientIdInput").value.trim();
+        const csec = document.getElementById("slackClientSecretInput").value.trim();
+        if(!cid || !csec){
+            showMessage(document.getElementById("slackIntegrationMessage"), "Client ID と Secret を入力してください。", "error");
+            return;
+        }
+        showMessage(document.getElementById("slackIntegrationMessage"), "保存中...", "info", 0);
+        try{
+            const res = await fetch(`${apiUrlBase}/api/slack/creds`,{
+                method:"POST",
+                headers:{ "Content-Type":"application/json"},
+                body: JSON.stringify({ client_id: cid, client_secret: csec })
+            });
+            const data = await res.json();
+            if(res.ok && data.status==="ok"){
+                showMessage(document.getElementById("slackIntegrationMessage"), "保存しました。", "success");
+                loadSlackStatus();
+            }else{
+                showMessage(document.getElementById("slackIntegrationMessage"), data.message||"保存失敗", "error");
+            }
+        }catch(e){
+            showMessage(document.getElementById("slackIntegrationMessage"), "通信エラー", "error");
+            console.error(e);
+        }
+    }
+
+    function startSlackInstall(){
+        const cid = document.getElementById("slackClientIdInput").value.trim();
+        if(!cid){
+            showMessage(document.getElementById("slackIntegrationMessage"), "まず Client ID を保存してください。", "error");
+            return;
+        }
+        const redirect = encodeURIComponent(window.location.origin + "/slack/oauth/callback");
+        const scopes = encodeURIComponent("chat:write,app_mentions:read");
+        const url = `https://slack.com/oauth/v2/authorize?client_id=${cid}&scope=${scopes}&redirect_uri=${redirect}`;
+        window.open(url, "_blank");
+        // ユーザーが承認を完了した後、手動で更新できるように少し遅れて状態確認
+        setTimeout(loadSlackStatus, 5000);
+    }
+
+    /* ---------- Slack status ---------- */
+    async function loadSlackStatus(){
+        try{
+            const res = await fetch(`${apiUrlBase}/api/slack/status`, {credentials:"include"});
+            const data = await res.json();
+            const badge = document.getElementById("slackStatusBadge");
+            if(!badge) return;
+            if(res.ok && data.status==="ok" && data.connected){
+                badge.textContent = "接続済み";
+                badge.style.background = "#4e73df";
+                badge.style.color = "#fff";
+            }else{
+                badge.textContent = "未接続";
+                badge.style.background = "#e0e0e0";
+                badge.style.color = "#555";
+            }
+        }catch(e){
+            console.error("Slack status error:", e);
+        }
+    }
+  </script>
+</body>
+</html>

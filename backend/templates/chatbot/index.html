@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>chachat Bot</title> <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    /* --- (CSSスタイル部分は変更なし) --- */
+    :root {
+      /* デフォルトのテーマカラー (JavaScriptで上書きされる) */
+      --theme-color-header: #C8A2C8; /* やや紫がかったピンク */
+      --theme-color-user: #B76E79;   /* ダスティピンク */
+      /* デフォルトのアイコンURL */
+      --ai-icon-url: "https://cdn.icon-icons.com/icons2/1378/PNG/512/avatardefault_92824.png";
+    }
+
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; margin: 0; background-color: #f0f0f0; }
+    .app-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 10px; box-sizing: border-box;}
+
+    .chat-container {
+        width: 100%; max-width: 600px; border: 1px solid #ccc; border-radius: 8px; background-color: #fff; display: flex; flex-direction: column; height: calc(100vh - 40px); max-height: 800px; box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    }
+
+    /* --- ヘッダー --- */
+    .chat-header { display: flex; align-items: center; padding: 10px 15px; background-color: var(--theme-color-header); color: white; flex-shrink: 0; border-top-left-radius: 8px; border-top-right-radius: 8px; }
+    .header-icon { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; object-fit: cover; background-color: rgba(255,255,255,0.3); flex-shrink: 0; }
+    .header-title { font-size: 1.1rem; font-weight: bold; flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .reset-button { background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; padding: 5px; line-height: 1; opacity: 0.8; transition: opacity 0.2s; flex-shrink: 0;}
+    .reset-button:hover { opacity: 1; }
+    .reset-button svg { width: 24px; height: 24px; fill: white; }
+
+    /* --- メッセージエリア --- */
+    #messages { flex-grow: 1; overflow-y: auto; padding: 20px 15px; display: flex; flex-direction: column; gap: 15px; }
+    .message-row { display: flex; align-items: flex-start; }
+    .message-row.user { justify-content: flex-end; }
+    .message-row.bot { justify-content: flex-start; }
+    .message-icon { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; background-color: #eee; object-fit: cover;}
+    .message-row.user .message-icon { display: none; }
+    .message-row.bot .message-icon { margin-right: 8px; }
+    .message-bubble { padding: 10px 15px; border-radius: 18px; max-width: 75%; word-wrap: break-word; line-height: 1.5; box-shadow: 0 1px 1px rgba(0,0,0,0.08); }
+    .message-bubble.user { background-color: var(--theme-color-user); color: white; border-bottom-right-radius: 4px; }
+    .message-bubble.bot { background-color: #f1f1f1; color: #333; border-bottom-left-radius: 4px; }
+    .message-bubble img { max-width: 100%; height: auto; border-radius: 8px; margin-top: 8px; display: block; cursor: pointer; } /* 画像スタイル */
+    .loading { color: #888; font-style: italic; text-align: center; padding: 10px; align-self: center;}
+
+    /* --- 入力エリア --- */
+    .input-area { display: flex; padding: 10px 15px; align-items: flex-end; border-top: 1px solid #eee; background-color: #f8f8f8; flex-shrink: 0; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; }
+    textarea#question { flex-grow: 1; padding: 10px 15px; border: 1px solid #ddd; border-radius: 22px; margin-right: 10px; font-family: inherit; font-size: 1rem; line-height: 1.4; min-height: 24px; max-height: 120px; resize: none; overflow-y: auto; box-sizing: border-box; height: 44px; }
+    textarea#question:focus { outline: none; border-color: var(--theme-color-user); }
+    button#sendButton { padding: 0 15px; background-color: var(--theme-color-user); color: white; border: none; border-radius: 22px; cursor: pointer; font-size: 1.2rem; height: 44px; width: 44px; display: flex; justify-content: center; align-items: center; transition: background-color 0.2s; flex-shrink: 0; }
+    button#sendButton svg { width: 20px; height: 20px; fill: white; }
+    button:hover { opacity: 0.9; }
+    button:disabled { background-color: #bbb; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+      <div class="chat-container">
+        <div class="chat-header">
+            <img id="headerIcon" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="AI Icon" class="header-icon">
+            <div id="headerTitle" class="header-title">チャットボット</div>
+            <button id="resetBtn" class="reset-button" title="チャット履歴をリセット" onclick="resetChat()">
+                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.41 1.41C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.25 2.52.77-1.28-3.52-2.09V8z"/></svg>
+            </button>
+        </div>
+
+        <div id="messages">
+            <!-- メッセージはここに追加される -->
+        </div>
+
+        <div class="input-area">
+          <textarea id="question" placeholder="メッセージを入力 (Shift+Enterで改行)" rows="1"></textarea>
+          <button id="sendButton" onclick="ask()" title="送信">
+              <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#FFFFFF"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M3.4 20.4l17.45-7.48c.81-.35.81-1.49 0-1.84L3.4 3.6c-.66-.29-1.39.2-1.39.91L2 9.12c0 .5.37.93.87.99L17 12 2.87 13.88c-.5.07-.87.5-.87 1l.01 4.61c0 .71.73 1.2 1.39.91z"/></svg>
+          </button>
+        </div>
+      </div>
+  </div>
+
+  <script>
+    const messagesDiv = document.getElementById('messages');
+    const questionInput = document.getElementById('question');
+    const sendButton = document.getElementById('sendButton');
+    const headerIcon = document.getElementById('headerIcon');
+    const headerTitle = document.getElementById('headerTitle');
+    const apiUrlBase = 'http://127.0.0.1:5001'; // バックエンドAPIのURL
+    let chatbotSettings = {}; // チャットボット設定を保持
+
+    // ▼▼▼ 会話履歴を保持する配列を追加 ▼▼▼
+    let chatHistory = [];
+    // ▲▲▲ 会話履歴を保持する配列を追加 ▲▲▲
+
+    // --- イベントリスナー (変更なし) ---
+    questionInput.addEventListener('input', autoResizeTextarea);
+    function autoResizeTextarea() { this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 120) + 'px'; }
+    questionInput.addEventListener('keydown', function(event) { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); ask(); } });
+
+    // --- メッセージ追加関数 (履歴への追加処理を追加) ---
+    function addMessage(text, sender) {
+        // ローディング表示があれば削除 (変更なし)
+        const loading = messagesDiv.querySelector('.loading');
+        if (loading) { messagesDiv.removeChild(loading); }
+
+        // メッセージ行全体と吹き出し要素を作成 (変更なし)
+        const msgRow = document.createElement('div');
+        msgRow.className = `message-row ${sender}`;
+
+        const msgBubble = document.createElement('div');
+        msgBubble.className = `message-bubble ${sender}`;
+
+        let processedText = text;
+        // ボットのメッセージの場合、句点「。」の後で改行し、連続改行をまとめる (変更なし)
+        if (sender === 'bot') {
+            processedText = processedText.replace(/。/g, '。\n');
+            processedText = processedText.replace(/\n\s*\n+/g, '\n');
+        }
+
+        // 改行文字(\n)をHTMLの<br>タグに変換 (変更なし)
+        let htmlContent = processedText.replace(/\n/g, '<br>');
+
+        // ボットのメッセージの場合、マークダウン形式の画像を<img>タグに変換 (変更なし)
+        if (sender === 'bot') {
+             htmlContent = htmlContent.replace(
+                 /!\[(.*?)\]\(([^)]+?)\)/g,
+                 (match, altText, imageUrl) => { /* ... (変更なし) ... */ }
+             );
+             // ボットアイコンを追加 (変更なし)
+             const icon = document.createElement('img');
+             const iconUrl = chatbotSettings.ai_icon_url || 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+             icon.src = iconUrl.includes('?') ? `${iconUrl}&t=${Date.now()}` : `${iconUrl}?t=${Date.now()}`;
+             icon.alt = "Bot Icon";
+             icon.className = 'message-icon ai-icon';
+             icon.onerror = () => { icon.src = "https://cdn.icon-icons.com/icons2/1378/PNG/512/avatardefault_92824.png"; };
+             msgRow.appendChild(icon);
+        }
+
+        msgBubble.innerHTML = htmlContent;
+        msgRow.appendChild(msgBubble);
+        messagesDiv.appendChild(msgRow);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight; // 最下部へスクロール (変更なし)
+
+        // ▼▼▼ メッセージを会話履歴に追加 ▼▼▼
+        // senderが'user'ならrole:'user', 'bot'ならrole:'assistant'として保存
+        const role = (sender === 'user') ? 'user' : 'assistant';
+        chatHistory.push({ role: role, content: text }); // 元のテキストを保存
+        console.log("Chat history updated:", chatHistory); // デバッグ用ログ
+        // ▲▲▲ メッセージを会話履歴に追加 ▲▲▲
+    }
+
+    // --- ローディング表示関数 (変更なし) ---
+    function showLoading() {
+         const loadingDiv = document.createElement('div');
+         loadingDiv.className = 'loading';
+         loadingDiv.textContent = '考え中...';
+         messagesDiv.appendChild(loadingDiv);
+         messagesDiv.scrollTop = messagesDiv.scrollHeight;
+     }
+
+    // --- 質問送信関数 (APIリクエストに履歴を含める) ---
+    async function ask() {
+        const question = questionInput.value.trim();
+        if(!question) return;
+
+        // ▼▼▼ ユーザーの質問をまず表示し、履歴に追加 ▼▼▼
+        addMessage(question, 'user');
+        // ▲▲▲ (addMessage内で履歴追加される) ▲▲▲
+
+        questionInput.value = '';
+        autoResizeTextarea.call(questionInput);
+        questionInput.disabled = true;
+        sendButton.disabled = true;
+        showLoading();
+
+        try {
+            // ▼▼▼ APIリクエストのボディに chatHistory を含める ▼▼▼
+            const res = await fetch(`${apiUrlBase}/api/ask`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json'},
+                // question と history を送信
+                body: JSON.stringify({ question: question, history: chatHistory.slice(0, -1) }) // 最新のユーザー質問は除く
+            });
+            // ▲▲▲ APIリクエストのボディに chatHistory を含める ▲▲▲
+
+            const data = await res.json();
+            const loading = messagesDiv.querySelector('.loading'); if (loading) messagesDiv.removeChild(loading);
+
+            if (res.ok && data.answer) {
+                // ▼▼▼ ボットの回答を表示し、履歴に追加 ▼▼▼
+                addMessage(data.answer, 'bot');
+                // ▲▲▲ (addMessage内で履歴追加される) ▲▲▲
+            } else {
+                addMessage(`エラー: ${data.error || 'サーバーでエラーが発生しました。'}`, 'bot');
+                 console.error("API Error Response:", data);
+            }
+        } catch (error) {
+             const loading = messagesDiv.querySelector('.loading'); if (loading) messagesDiv.removeChild(loading);
+             addMessage(`通信エラーが発生しました: ${error}`, 'bot');
+             console.error("Fetch API Error:", error);
+        } finally {
+            questionInput.disabled = false;
+            sendButton.disabled = false;
+            questionInput.focus();
+        }
+    }
+
+    // --- チャットリセット関数 (履歴もクリア) ---
+    function resetChat() {
+        if (confirm("チャット履歴をリセットしてもよろしいですか？")) {
+            messagesDiv.innerHTML = ''; // メッセージ履歴を空にする
+            // ▼▼▼ 会話履歴配列も空にする ▼▼▼
+            chatHistory = [];
+            console.log("Chat history reset."); // デバッグ用ログ
+            // ▲▲▲ 会話履歴配列も空にする ▲▲▲
+
+            // 設定された初期メッセージで再度表示 (これは履歴には追加しない)
+            const initialMsg = chatbotSettings.initial_message || "こんにちは！何か質問はありますか？(Shift+Enterで改行)";
+            const msgRow = document.createElement('div'); msgRow.className = 'message-row bot';
+            const msgBubble = document.createElement('div'); msgBubble.className = 'message-bubble bot';
+            const icon = document.createElement('img');
+            icon.src = chatbotSettings.ai_icon_url || 'https://cdn.icon-icons.com/icons2/1378/PNG/512/avatardefault_92824.png';
+            icon.className = 'message-icon ai-icon';
+            /* ... icon setup ... */
+            msgRow.appendChild(icon);
+            msgBubble.innerHTML = initialMsg.replace(/\n/g, '<br>');
+            msgRow.appendChild(msgBubble);
+            messagesDiv.appendChild(msgRow);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight; // スクロール
+
+            questionInput.value = '';
+            autoResizeTextarea.call(questionInput);
+        }
+    }
+
+    // --- 設定読み込み・適用関数 (変更なし) ---
+    async function applyChatbotSettings() {
+        // デフォルト設定値 (変更なし)
+        const defaultIcon = "https://cdn.icon-icons.com/icons2/1378/PNG/512/avatardefault_92824.png";
+        const defaultHeaderColor = "#C8A2C8";
+        const defaultUserColor = "#B76E79";
+        const defaultAiName = "AI アシスタント";
+        const defaultInitialMessage = "こんにちは！何か質問はありますか？(Shift+Enterで改行)";
+
+        try {
+            console.log("Fetching chatbot settings...");
+            const res = await fetch(`${apiUrlBase}/api/settings?t=${Date.now()}`);
+            const data = await res.json();
+            if (res.ok && data.status === 'ok' && data.settings) {
+                chatbotSettings = data.settings;
+                console.log("Settings loaded:", chatbotSettings);
+            } else {
+                console.error("Failed to load chatbot settings:", data.message || "Unknown error");
+                chatbotSettings = { /* ... デフォルト設定 ... */ ai_name: defaultAiName, ai_icon_url: defaultIcon, theme_color_header: defaultHeaderColor, theme_color_user: defaultUserColor, initial_message: defaultInitialMessage };
+            }
+
+            // 設定適用 (CSS変数、ヘッダー情報) (変更なし)
+            const settingsToApply = chatbotSettings;
+            const root = document.documentElement;
+            root.style.setProperty('--theme-color-header', settingsToApply.theme_color_header || defaultHeaderColor);
+            root.style.setProperty('--theme-color-user', settingsToApply.theme_color_user || defaultUserColor);
+            headerTitle.textContent = settingsToApply.ai_name || defaultAiName;
+            const iconUrl = settingsToApply.ai_icon_url || defaultIcon;
+            const iconUrlWithCacheBuster = `${iconUrl}?t=${Date.now()}`;
+            headerIcon.src = iconUrlWithCacheBuster;
+            headerIcon.onerror = () => { headerIcon.src = defaultIcon; };
+
+            // 初期メッセージ表示 (messagesDivが空の場合のみ) (変更なし)
+            if (messagesDiv.children.length === 0) {
+                 // 初期メッセージは履歴に含めない (表示のみ)
+                 const initialMsg = settingsToApply.initial_message || defaultInitialMessage;
+                 const msgRow = document.createElement('div'); msgRow.className = 'message-row bot';
+                 const msgBubble = document.createElement('div'); msgBubble.className = 'message-bubble bot';
+                 const icon = document.createElement('img'); icon.src = iconUrlWithCacheBuster; icon.alt="Bot Icon"; icon.className='message-icon ai-icon'; icon.onerror=()=>{icon.src=defaultIcon;}; msgRow.appendChild(icon);
+                 msgBubble.innerHTML = initialMsg.replace(/\n/g, '<br>'); msgRow.appendChild(msgBubble); messagesDiv.appendChild(msgRow);
+                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            } else {
+                 // リロードなどで既にメッセージがある場合、既存のボットアイコンを更新 (変更なし)
+                 messagesDiv.querySelectorAll('.message-row.bot .message-icon').forEach(icon => {
+                     icon.src = iconUrlWithCacheBuster || defaultIcon;
+                     icon.onerror = () => { icon.src = defaultIcon; };
+                 });
+            }
+
+        } catch (error) {
+            console.error("Error applying chatbot settings:", error);
+            // 通信エラーなどの場合もデフォルト表示 (変更なし)
+            if (messagesDiv.children.length === 0) {
+                 const initialMsg = defaultInitialMessage; // グローバルデフォルトを使う
+                 const msgRow = document.createElement('div'); /* ... */ msgRow.className='message-row bot'; /* ... */ messagesDiv.appendChild(msgRow);
+            }
+        }
+    }
+
+    // ページ読み込み時に設定を適用 (変更なし)
+    window.onload = applyChatbotSettings;
+
+  </script>
+</body>
+</html>

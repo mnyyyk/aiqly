@@ -1,0 +1,7 @@
+{
+  "ai_name": "chachat AI10",
+  "ai_icon_url": "/static/icons/ai_icon.png",
+  "theme_color_header": "#cc24cc",
+  "theme_color_user": "#cc24cc",
+  "initial_message": "お問い合わせいただきありがとうございます。2"
+}

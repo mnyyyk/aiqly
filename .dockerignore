@@ -1,0 +1,10 @@
+# 仮想環境やキャッシュはイメージに要らない
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.log
+uploads/
+.idea/
+.vscode/

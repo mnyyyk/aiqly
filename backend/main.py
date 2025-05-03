@@ -180,7 +180,15 @@ load_dotenv()
 SLACK_REDIRECT_URI = os.getenv("SLACK_REDIRECT_URI")  # e.g. https://xxxx.ngrok-free.app/slack/oauth/callback
 
 # --- Flaskアプリケーション初期化と設定 ---
+# --- Behind‑ALB HTTPS awareness ---
+# Trust X‑Forwarded‑Proto / Host sent by the load balancer so that url_for(..., _external=True)
+# and OAuth redirect_uri are generated with "https://app.aiqly.co".
 app = Flask(__name__, static_folder='static', static_url_path='/static', template_folder='templates')
+from werkzeug.middleware.proxy_fix import ProxyFix  # already imported above
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+# Force url_for to prefer HTTPS scheme globally
+app.config.setdefault("PREFERRED_URL_SCHEME", "https")
+# ------------------------------------------------------------------
 # ------------------------------------------------------------------
 # To keep Flask session cookies bound to the same host that Slack
 # sends back to, derive SERVER_NAME from SLACK_REDIRECT_URI when set.

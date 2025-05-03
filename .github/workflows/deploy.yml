@@ -1,0 +1,41 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  id-token: write       # OIDC で AWS ロールを引き受ける
+  contents: read
+
+env:
+  AWS_REGION: ap-northeast-1
+  ECR_REPO: 904368995258.dkr.ecr.ap-northeast-1.amazonaws.com/chachat-backend
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::904368995258:role/github-actions-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push Docker image
+        run: |
+          docker build -t $ECR_REPO:latest .
+          docker push  $ECR_REPO:latest
+
+      - name: Deploy to ECS
+        run: |
+          aws ecs update-service \
+            --cluster aiqly-prod \
+            --service backend \
+            --force-new-deployment

@@ -224,9 +224,16 @@ app.register_blueprint(google_bp, url_prefix="/login")
 CORS(app, supports_credentials=True)
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'change-this-very-secret-key-in-production')
 if app.config['SECRET_KEY'] == 'change-this-very-secret-key-in-production': print("WARNING: Use a strong SECRET_KEY!")
-db_dir = os.path.join(os.path.dirname(__file__), 'instance');
-if not os.path.exists(db_dir): os.makedirs(db_dir)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(db_dir, 'users.db')
+ # --- Database connection ---
+db_uri = os.getenv("DATABASE_URL")
+if db_uri:
+    # Use the connection string supplied via environment (e.g. PostgreSQL on RDS)
+    app.config["SQLALCHEMY_DATABASE_URI"] = db_uri
+else:
+    # Fallback to local sqlite for development
+    db_dir = os.path.join(os.path.dirname(__file__), "instance")
+    os.makedirs(db_dir, exist_ok=True)
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + os.path.join(db_dir, "users.db")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 migrate = Migrate(app, db)

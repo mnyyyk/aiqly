@@ -34,6 +34,7 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
+
       - name: Build & push multi‑arch image
         uses: docker/build-push-action@v4
         with:
@@ -41,6 +42,26 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.ECR_REPO }}:latest
+
+      - name: Run Alembic migrations on RDS
+        uses: aws-actions/amazon-ecs-run-task@v2
+        with:
+          cluster: aiqly-prod
+          launch-type: FARGATE
+          task-definition: aiqly-backend   # 最新リビジョンを自動検出
+          wait-for-finish: true
+          count: 1
+          subnet-ids: subnet-032da3af4dc382e44,subnet-09512824c0aaea846,subnet-04a264dde050c95e5      # ← private‑subnet 1a / 1c (書き換えてください)
+          security-groups: sg-049ab2067088e7119            # ← ECS タスク用 SG
+          overrides: |
+            {
+              "containerOverrides": [{
+                "name": "backend",
+                "command": ["flask", "db", "upgrade"]
+              }],
+              "cpu": "256",
+              "memory": "512"
+            }
 
       - name: Deploy to ECS
         run: |

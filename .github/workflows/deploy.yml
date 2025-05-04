@@ -44,19 +44,15 @@ jobs:
           tags: ${{ env.ECR_REPO }}:latest
 
       - name: Run Alembic migrations on RDS
-        uses: aws-actions/aws-cli@v1
-        with:
-          aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: arn:aws:iam::904368995258:role/github-actions-deploy
-          inline-script: |
-            aws ecs run-task \
-              --cluster aiqly-prod \
-              --launch-type FARGATE \
-              --task-definition aiqly-backend \
-              --count 1 \
-              --network-configuration "awsvpcConfiguration={subnets=[subnet-032da3af4dc382e44,subnet-09512824c0aaea846,subnet-04a264dde050c95e5],securityGroups=[sg-049ab2067088e7119],assignPublicIp=DISABLED}" \
-              --overrides '{"containerOverrides":[{"name":"backend","command":["flask","db","upgrade"]}],"cpu":"256","memory":"512"}' \
-              --started-by github-ci
+        run: |
+          aws ecs run-task \
+            --cluster aiqly-prod \
+            --launch-type FARGATE \
+            --task-definition aiqly-backend \
+            --count 1 \
+            --network-configuration "awsvpcConfiguration={subnets=[subnet-032da3af4dc382e44,subnet-09512824c0aaea846,subnet-04a264dde050c95e5],securityGroups=[sg-049ab2067088e7119],assignPublicIp=DISABLED}" \
+            --overrides '{"containerOverrides":[{"name":"backend","command":["flask","db","upgrade"]}],"cpu":"256","memory":"512"}' \
+            --started-by github-ci
 
       - name: Deploy to ECS
         run: |

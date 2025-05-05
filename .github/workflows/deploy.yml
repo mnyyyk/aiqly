@@ -42,6 +42,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.ECR_REPO }}:latest
+          cache-from: type=registry,ref=${{ env.ECR_REPO }}:buildcache
+          cache-to:   type=registry,ref=${{ env.ECR_REPO }}:buildcache,mode=max
 
       - name: Run Alembic migrations on RDS
         run: |

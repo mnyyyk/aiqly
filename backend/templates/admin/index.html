@@ -298,6 +298,7 @@
           <h2><i class="fa-solid fa-plug"></i> システム連携</h2>
 
           <h3>Slack 連携</h3>
+
           <!-- 接続状態表示 -->
           <div id="slackStatusDisplay" style="margin:12px 0;font-weight:600;">
             Slack 接続状態:
@@ -305,16 +306,10 @@
               未接続
             </span>
           </div>
-          <p>Slack ワークスペースとの連携に必要な <b>Client ID</b> と <b>Client Secret</b> を入力し、「Slack にインストール」を押してください。</p>
 
-          <label for="slackClientIdInput">Client&nbsp;ID:</label>
-          <input type="text" id="slackClientIdInput" placeholder="1234567890.1234567890123">
-
-          <label for="slackClientSecretInput">Client&nbsp;Secret:</label>
-          <input type="password" id="slackClientSecretInput" placeholder="********">
-
-          <button onclick="saveSlackCreds()">保存</button>
-          <button class="secondary" onclick="startSlackInstall()">Slack にインストール</button>
+          <button id="slackConnectBtn" class="secondary" onclick="startSlackOAuth()">
+            <i class="fa-brands fa-slack"></i> Slack と連携
+          </button>
 
           <div id="slackIntegrationMessage" class="message-area"></div>
       </div>
@@ -721,46 +716,24 @@
             alert("通信エラー: " + e);
         }
     }
-    // --- Slack Integration placeholders ---
-    async function saveSlackCreds(){
-        const cid = document.getElementById("slackClientIdInput").value.trim();
-        const csec = document.getElementById("slackClientSecretInput").value.trim();
-        if(!cid || !csec){
-            showMessage(document.getElementById("slackIntegrationMessage"), "Client ID と Secret を入力してください。", "error");
-            return;
-        }
-        showMessage(document.getElementById("slackIntegrationMessage"), "保存中...", "info", 0);
-        try{
-            const res = await fetch(`${apiUrlBase}/api/slack/creds`,{
-                method:"POST",
-                headers:{ "Content-Type":"application/json"},
-                body: JSON.stringify({ client_id: cid, client_secret: csec })
-            });
-            const data = await res.json();
-            if(res.ok && data.status==="ok"){
-                showMessage(document.getElementById("slackIntegrationMessage"), "保存しました。", "success");
-                loadSlackStatus();
-            }else{
-                showMessage(document.getElementById("slackIntegrationMessage"), data.message||"保存失敗", "error");
-            }
-        }catch(e){
-            showMessage(document.getElementById("slackIntegrationMessage"), "通信エラー", "error");
-            console.error(e);
-        }
-    }
-
-    function startSlackInstall(){
-        const cid = document.getElementById("slackClientIdInput").value.trim();
-        if(!cid){
-            showMessage(document.getElementById("slackIntegrationMessage"), "まず Client ID を保存してください。", "error");
-            return;
-        }
-        const redirect = encodeURIComponent(window.location.origin + "/slack/oauth/callback");
-        const scopes = encodeURIComponent("chat:write,app_mentions:read");
-        const url = `https://slack.com/oauth/v2/authorize?client_id=${cid}&scope=${scopes}&redirect_uri=${redirect}`;
-        window.open(url, "_blank");
-        // ユーザーが承認を完了した後、手動で更新できるように少し遅れて状態確認
-        setTimeout(loadSlackStatus, 5000);
+    // --- Slack Integration OAuth (simple one-click) ---
+    /* ---------- Slack OAuth flow (simple) ---------- */
+    async function startSlackOAuth(){
+      showMessage(document.getElementById("slackIntegrationMessage"), "Slack 接続ページを開いています…", "info", 0);
+      try{
+          const res = await fetch(`${apiUrlBase}/api/slack/auth_url`, {credentials:"include"});
+          const data = await res.json();
+          if(res.ok && data.status==="ok" && data.url){
+              window.open(data.url, "_blank");
+              // 少し待って接続状態を再チェック
+              setTimeout(loadSlackStatus, 6000);
+          }else{
+              showMessage(document.getElementById("slackIntegrationMessage"), data.message||"URL取得に失敗しました", "error");
+          }
+      }catch(e){
+          console.error(e);
+          showMessage(document.getElementById("slackIntegrationMessage"), "通信エラー", "error");
+      }
     }
 
     /* ---------- Slack status ---------- */

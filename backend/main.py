@@ -21,6 +21,7 @@ import io
 import pandas as pd  # ファイル先頭のimport部分に追加
 
 from uuid import uuid4
+import secrets
 from datetime import datetime, timezone
 
 # ---- Slack integration imports ----
@@ -366,6 +367,7 @@ def logout():
 
 # --- APIエンドポイント ---
 
+
 # ---------- Slack status endpoint ----------
 @app.route("/api/slack/status")
 @login_required
@@ -378,7 +380,34 @@ def slack_status():
         db.select(SlackIntegration).filter_by(user_id=current_user.id)
     ).first()
     return jsonify(status="ok", connected=bool(integ and integ.bot_token))
-# ------------------------------------------------
+
+# ---------- Slack auth‑URL (one‑click) ----------
+@app.route("/api/slack/auth_url", methods=["GET"])
+@login_required
+def slack_auth_url():
+    """
+    Issue Slack OAuth authorisation URL
+    (uses global SLACK_CLIENT_ID / SLACK_REDIRECT_URI from env).
+    Response JSON: { "status": "ok", "auth_url": "https://slack.com/..." }
+    """
+    cid = os.getenv("SLACK_CLIENT_ID")
+    if not cid:
+        return jsonify(status="error", message="SLACK_CLIENT_ID not set"), 500
+
+    # CSRF‑protection state – save in Flask session
+    state = secrets.token_urlsafe(16)
+    session["slack_oauth_state"] = state
+
+    redirect_uri = SLACK_REDIRECT_URI or url_for("slack_oauth_callback", _external=True)
+    params = {
+        "client_id": cid,
+        "scope": "app_mentions:read,chat:write",
+        "redirect_uri": redirect_uri,
+        "state": state,
+    }
+    auth_url = "https://slack.com/oauth/v2/authorize?" + urllib.parse.urlencode(params)
+    return jsonify(status="ok", auth_url=auth_url)
+# -------------------------------------------------
 
 # ---------- Slack integration routes ----------
 @app.route("/api/slack/creds", methods=["POST"])
@@ -435,13 +464,25 @@ def slack_oauth_callback():
     # If state is missing or no match, fall back to the most‑recent integration for the current user.
     if not integ:
         print("[Slack OAuth] WARNING: state validation skipped (empty or unmatched).")
-        integ = db.session.scalars(
-            db.select(SlackIntegration)
-              .filter_by(user_id=current_user.id)
-              .order_by(SlackIntegration.updated_at.desc())
-        ).first()
+        # --- Fallback: create integration using global creds ---
+        if not integ and current_user.is_authenticated:
+            cid  = os.getenv("SLACK_CLIENT_ID")
+            csec = os.getenv("SLACK_CLIENT_SECRET")
+            if not cid or not csec:
+                return "Slack creds not configured on server", 500
+            integ = SlackIntegration(user_id=current_user.id,
+                                     client_id=cid,
+                                     client_secret=csec)
+            db.session.add(integ)
+            db.session.commit()
         if not integ:
-            return "Invalid state (no integration)", 400
+            integ = db.session.scalars(
+                db.select(SlackIntegration)
+                  .filter_by(user_id=current_user.id)
+                  .order_by(SlackIntegration.updated_at.desc())
+            ).first()
+            if not integ:
+                return "Invalid state (no integration)", 400
     if not code:
         return "Missing code", 400
 

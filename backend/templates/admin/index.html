@@ -719,20 +719,35 @@
     // --- Slack Integration OAuth (simple one-click) ---
     /* ---------- Slack OAuth flow (simple) ---------- */
     async function startSlackOAuth(){
-      showMessage(document.getElementById("slackIntegrationMessage"), "Slack 接続ページを開いています…", "info", 0);
-      try{
-          const res = await fetch(`${apiUrlBase}/api/slack/auth_url`, {credentials:"include"});
+      const msgArea = document.getElementById("slackIntegrationMessage");
+      // ① ユーザーに進行状況を表示
+      showMessage(msgArea, "Slack 接続ページを開いています…", "info", 0);
+
+      try {
+          // ② バックエンドに OAuth URL を要求
+          const res  = await fetch(`${apiUrlBase}/api/slack/auth_url`, { credentials: "include" });
           const data = await res.json();
-          if(res.ok && data.status==="ok" && data.url){
-              window.open(data.url, "_blank");
-              // 少し待って接続状態を再チェック
-              setTimeout(loadSlackStatus, 6000);
-          }else{
-              showMessage(document.getElementById("slackIntegrationMessage"), data.message||"URL取得に失敗しました", "error");
+
+          // ③ 正常に URL を取得できたらブラウザで開く
+          if (res.ok && data.status === "ok" && data.auth_url) {
+              window.open(data.auth_url, "_blank");
+
+              // ④ ユーザーに次の手順を案内
+              showMessage(
+                  msgArea,
+                  "ブラウザで Slack 認可画面を開きました。許可後にこの画面をリロードしてください。",
+                  "success"
+              );
+
+              // ⑤ 数秒後に接続状態を自動チェック
+              setTimeout(loadSlackStatus, 8000);
+          } else {
+              // バックエンドがエラーを返した場合
+              showMessage(msgArea, data.message || "URL取得に失敗しました", "error");
           }
-      }catch(e){
-          console.error(e);
-          showMessage(document.getElementById("slackIntegrationMessage"), "通信エラー", "error");
+      } catch (e) {
+          console.error("Slack OAuth Error:", e);
+          showMessage(msgArea, `通信エラー: ${e}`, "error");
       }
     }
 

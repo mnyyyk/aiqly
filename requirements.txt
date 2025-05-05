@@ -173,3 +173,5 @@ zstandard==0.23.0
 gunicorn==21.2.0
 psycopg2-binary>=2.9
 Flask-Migrate>=4.0
+chromadb[postgres]
+psycopg2-binary

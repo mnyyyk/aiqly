@@ -6,11 +6,26 @@ import os
 import traceback
 import hashlib
 
-# ChromaDBクライアント初期化
-db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'instance', 'chroma_db'))
-if not os.path.exists(os.path.dirname(db_path)): os.makedirs(os.path.dirname(db_path))
-print(f"Initializing ChromaDB client with path: {db_path}")
-client = chromadb.PersistentClient(path=db_path)
+# --------------------------------------------------------------------
+# ChromaDB client (PostgreSQL backend)
+# --------------------------------------------------------------------
+from chromadb import Client
+from chromadb.config import Settings
+
+pg_settings = Settings(
+    chroma_db_impl="postgres",
+    postgres_host=os.getenv("PGHOST", "aiqly-cluster.cluster-clgcso6ya7jn.ap-northeast-1.rds.amazonaws.com"),
+    postgres_port=int(os.getenv("PGPORT", "5432")),
+    postgres_user=os.getenv("PGUSER", "aiqly_admin"),
+    postgres_password=os.getenv("PGPASSWORD", ""),
+    postgres_database=os.getenv("PGDATABASE", "aiqly"),
+    anonymized_telemetry=False
+)
+
+print("[Retriever] Initializing ChromaDB client (Postgres backend)")
+client = Client(pg_settings)
+# --------------------------------------------------------------------
+
 
 # コレクション取得または新規作成関数
 def get_collection(user_id: int):

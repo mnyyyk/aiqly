@@ -27,3 +27,5 @@ celery[redis]
 gunicorn
 psycopg2-binary>=2.9
 Flask-Migrate>=4.0
+chromadb[postgres]
+psycopg2-binary

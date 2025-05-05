@@ -47,6 +47,31 @@ jobs:
           cache-from: type=registry,ref=${{ env.ECR_REPO }}:buildcache
           cache-to:   type=registry,ref=${{ env.ECR_REPO }}:buildcache,mode=max,image-manifest=true
 
+      - name: Render new task definition
+        id: render_td
+        run: |
+          # 1. pull latest task definition as template
+          aws ecs describe-task-definition \
+            --task-definition aiqly-backend \
+            --query 'taskDefinition' \
+            --output json > taskdef.json
+
+          # 2. replace image tag with :latest (just built), strip AWS‑managed fields
+          jq --arg IMAGE "${{ env.ECR_REPO }}:latest" '
+              .containerDefinitions[0].image = $IMAGE
+              | del(.taskDefinitionArn, .revision, .status, .compatibilities,
+                     .registeredAt, .registeredBy, .requiresAttributes)
+          ' taskdef.json > taskdef_new.json
+
+      - name: Register task definition
+        id: register_td
+        run: |
+          NEW_TD_ARN=$(aws ecs register-task-definition \
+              --cli-input-json file://taskdef_new.json \
+              --query 'taskDefinition.taskDefinitionArn' \
+              --output text)
+          echo "new_td=$NEW_TD_ARN" >> "$GITHUB_OUTPUT"
+
       - name: Run Alembic migrations on RDS
         run: |
           aws ecs run-task \
@@ -63,4 +88,5 @@ jobs:
           aws ecs update-service \
             --cluster aiqly-prod \
             --service backend \
+            --task-definition ${{ steps.register_td.outputs.new_td }} \
             --force-new-deployment

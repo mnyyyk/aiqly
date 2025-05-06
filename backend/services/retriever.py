@@ -4,6 +4,7 @@ import chromadb
 from backend.services.embedding import get_embedding
 import os
 import traceback
+from chromadb import HttpClient
 import hashlib
 import urllib.parse as _urlparse
 
@@ -28,25 +29,13 @@ if _db_url and not os.getenv("CHROMA_POSTGRES_HOST"):
     os.environ.setdefault("CHROMA_POSTGRES_DATABASE", (_parsed.path or "").lstrip("/"))
 
 # --------------------------------------------------------------------
-# ChromaDB client (PostgreSQL backend)
+# ChromaDB client (HTTP backend ‑ single‑node service)
 # --------------------------------------------------------------------
-from chromadb import Client
-from chromadb.config import Settings
+CHROMA_HOST = os.getenv("CHROMA_HOST", "chroma-service.internal")
+CHROMA_PORT = int(os.getenv("CHROMA_PORT", "8000"))
 
-#
-# --------------------------------------------------------------------
-# ChromaDB client (PostgreSQL backend)
-#   全パラメータを環境変数から取得するよう統一
-#   ・必須: CHROMA_DB_IMPL=postgres
-#   ・CHROMA_POSTGRES_* は chromadb が自動取得
-# --------------------------------------------------------------------
-pg_settings = Settings(
-    chroma_db_impl=os.getenv("CHROMA_DB_IMPL", "postgres"),
-    anonymized_telemetry=False
-)
-
-print("[Retriever] Initializing ChromaDB client (Postgres backend)")
-client = Client(pg_settings)
+print(f"[Retriever] Connecting to ChromaDB HTTP at {CHROMA_HOST}:{CHROMA_PORT}")
+client = HttpClient(host=CHROMA_HOST, port=CHROMA_PORT, ssl=False)
 # --------------------------------------------------------------------
 
 

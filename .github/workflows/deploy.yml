@@ -44,7 +44,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.ECR_REPO }}:latest
-          cache-to: type=registry,ref=${{ env.ECR_REPO }}:buildcache,mode=max
+          cache-to: type=registry,ref=${{ env.ECR_REPO }}:buildcache,mode=max,image-manifest=true
           cache-from: type=registry,ref=${{ env.ECR_REPO }}:buildcache
 
       - name: Render new task definition

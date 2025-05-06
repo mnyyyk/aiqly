@@ -169,4 +169,4 @@ zipp==3.21.0
 zstandard==0.23.0
 gunicorn==21.2.0
 psycopg2-binary==2.9.9
-chromadb[postgres]==0.4.13
+chromadb[postgres]==0.3.29

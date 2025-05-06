@@ -18,6 +18,7 @@ RUN pip install -r requirements.txt
 
 # 6. アプリのソースをコピー
 COPY . /app
+EXPOSE 8000
 
 # 7. gunicorn をデフォルト起動（ポート 8000）
 ENV FLASK_APP=backend.main PYTHONPATH=/app

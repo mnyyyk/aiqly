@@ -20,12 +20,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
         with:
-          version: v0.13.1
+          install: true
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -38,14 +38,14 @@ jobs:
 
 
       - name: Build & push multi‑arch image
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.ECR_REPO }}:latest
+          cache-to: type=registry,ref=${{ env.ECR_REPO }}:buildcache,mode=max
           cache-from: type=registry,ref=${{ env.ECR_REPO }}:buildcache
-          cache-to:   type=registry,ref=${{ env.ECR_REPO }}:buildcache,mode=max,image-manifest=true
 
       - name: Render new task definition
         id: render_td
@@ -77,7 +77,7 @@ jobs:
           aws ecs run-task \
             --cluster aiqly-prod \
             --launch-type FARGATE \
-            --task-definition aiqly-backend \
+            --task-definition ${{ steps.register_td.outputs.new_td }} \
             --count 1 \
             --network-configuration "awsvpcConfiguration={subnets=[subnet-032da3af4dc382e44,subnet-09512824c0aaea846,subnet-04a264dde050c95e5],securityGroups=[sg-049ab2067088e7119],assignPublicIp=DISABLED}" \
             --overrides '{"containerOverrides":[{"name":"backend","command":["flask","db","upgrade"]}],"cpu":"256","memory":"512"}' \

@@ -14,7 +14,11 @@ WORKDIR /app
 
 # 5. 依存ライブラリを先にコピー → キャッシュ効率UP
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    apt-get purge -y build-essential gcc && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
 
 # 6. アプリのソースをコピー
 COPY . /app

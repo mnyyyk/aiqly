@@ -5,6 +5,27 @@ from backend.services.embedding import get_embedding
 import os
 import traceback
 import hashlib
+import urllib.parse as _urlparse
+
+
+# --------------------------------------------------------------------
+# If CHROMA_POSTGRES_* variables are *not* individually supplied but a
+# DATABASE_URL like
+#   postgresql+psycopg2://user:password@host:port/dbname
+# is present (as in production Secrets Manager), parse it and populate
+# the individual CHROMA_POSTGRES_* environment variables so that
+# chromadb's Settings() can pick them up.
+# --------------------------------------------------------------------
+_db_url = os.getenv("DATABASE_URL")
+if _db_url and not os.getenv("CHROMA_POSTGRES_HOST"):
+    _parsed = _urlparse.urlparse(_db_url)
+    # scheme may be "postgres", "postgresql", "postgresql+psycopg2", etc.
+    os.environ.setdefault("CHROMA_POSTGRES_HOST", _parsed.hostname or "")
+    os.environ.setdefault("CHROMA_POSTGRES_PORT", str(_parsed.port or 5432))
+    os.environ.setdefault("CHROMA_POSTGRES_USER", _parsed.username or "")
+    os.environ.setdefault("CHROMA_POSTGRES_PASSWORD", _parsed.password or "")
+    # path comes with a leading '/', strip it
+    os.environ.setdefault("CHROMA_POSTGRES_DATABASE", (_parsed.path or "").lstrip("/"))
 
 # --------------------------------------------------------------------
 # ChromaDB client (PostgreSQL backend)
@@ -12,13 +33,15 @@ import hashlib
 from chromadb import Client
 from chromadb.config import Settings
 
+#
+# --------------------------------------------------------------------
+# ChromaDB client (PostgreSQL backend)
+#   全パラメータを環境変数から取得するよう統一
+#   ・必須: CHROMA_DB_IMPL=postgres
+#   ・CHROMA_POSTGRES_* は chromadb が自動取得
+# --------------------------------------------------------------------
 pg_settings = Settings(
-    chroma_db_impl="postgres",
-    postgres_host=os.getenv("PGHOST", "aiqly-cluster.cluster-clgcso6ya7jn.ap-northeast-1.rds.amazonaws.com"),
-    postgres_port=int(os.getenv("PGPORT", "5432")),
-    postgres_user=os.getenv("PGUSER", "aiqly_admin"),
-    postgres_password=os.getenv("PGPASSWORD", ""),
-    postgres_database=os.getenv("PGDATABASE", "aiqly"),
+    chroma_db_impl=os.getenv("CHROMA_DB_IMPL", "postgres"),
     anonymized_telemetry=False
 )
 

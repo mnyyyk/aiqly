@@ -17,7 +17,6 @@ cachetools==5.5.2
 celery==5.5.1
 certifi==2025.1.31
 charset-normalizer==3.4.1
-chroma-hnswlib==0.7.6
 click==8.1.8
 click-didyoumean==0.3.1
 click-plugins==1.1.1
@@ -169,6 +168,5 @@ yarl==1.20.0
 zipp==3.21.0
 zstandard==0.23.0
 gunicorn==21.2.0
-Flask-Migrate>=4.0
-psycopg2-binary
+psycopg2-binary==2.9.9
 chromadb[postgres]==0.4.13

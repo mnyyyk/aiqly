@@ -1,5 +1,5 @@
 # 1. 軽量な公式 Python イメージ
-FROM python:3.13-slim
+FROM python:3.12-slim
 
 # 2. ログを即時フラッシュ（便利）
 ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1

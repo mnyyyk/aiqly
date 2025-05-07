@@ -149,6 +149,14 @@ def _verify_slack_signature(req) -> bool:
     Slack basestring = "v0:{timestamp}:{raw_body}"
     Raw body must be **bytes as sent**, so use get_data(cache=False, as_text=False).
     """
+    # --- DEBUG: log signature verification inputs ---
+    try:
+        print("[DEBUG] Verifying Slack signature:",
+              "timestamp=", req.headers.get("X-Slack-Request-Timestamp", ""),
+              "sig_header=", req.headers.get("X-Slack-Signature", ""))
+    except Exception as e:
+        print(f"[DEBUG] Failed printing signature headers: {e}")
+
     signing_secret = os.getenv("SLACK_SIGNING_SECRET")
     if not signing_secret:
         return False
@@ -160,6 +168,7 @@ def _verify_slack_signature(req) -> bool:
 
     # Replay‑attack guard (5‑minute window)
     if abs(time_mod.time() - int(timestamp)) > 60 * 5:
+        print(f"[DEBUG] Rejecting Slack request – timestamp skew {abs(time_mod.time() - int(timestamp)):.1f}s > 300s")
         return False
 
     raw_body = req.get_data(cache=False, as_text=False)  # bytes
@@ -168,6 +177,9 @@ def _verify_slack_signature(req) -> bool:
         signing_secret.encode(), basestring, hashlib.sha256
     ).hexdigest()
 
+    if not hmac.compare_digest(my_sig, sig_header):
+        print("[DEBUG] Rejecting Slack request – HMAC mismatch",
+              "computed=", my_sig, "header=", sig_header)
     return hmac.compare_digest(my_sig, sig_header)
 # -----------------------------------
 
@@ -548,6 +560,9 @@ def slack_events():
     try:
         handle_slack_event.delay(body)
         print("[DEBUG] handle_slack_event enqueued")  # <-- added
+    except SignatureError:
+        # custom print already handled in _verify_slack_signature
+        raise
     except Exception as e:
         print(f"[Slack] Failed enqueue task: {e}")
 

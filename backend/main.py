@@ -558,15 +558,28 @@ def slack_events():
 
     # enqueue async processing – do not block / avoid duplicate replies
     try:
-        handle_slack_event.delay(body)
-        print("[DEBUG] handle_slack_event enqueued")  # <-- added
-    except SignatureError:
-        # custom print already handled in _verify_slack_signature
-        raise
-    except Exception as e:
-        print(f"[Slack] Failed enqueue task: {e}")
+    # ★ ペイロードの一部（例: event_idやtextの冒頭）をログに出力すると追跡しやすい
+        event_id = body.get("event_id", "N/A")
+        event_type = body.get("event", {}).get("type", "N/A")
+        print(f"[INFO] Received Slack event. Event ID: {event_id}, Type: {event_type}")
+        print(f"[DEBUG] Attempting to enqueue handle_slack_event with body (first 100 chars): {str(body)[:100]}") # ★ bodyの内容も少し出す
 
-    # Immediate 200 response for Slack
+        task = handle_slack_event.delay(body) # ★ taskオブジェクトを受け取る
+        print(f"[INFO] handle_slack_event enqueued successfully. Task ID: {task.id}") # ★ Task IDもログに出す
+
+    except ConnectionError as e_conn: # ★ Redis接続エラーを明示的にキャッチ
+        print(f"[CRITICAL_ERROR] Failed to enqueue task due to Redis ConnectionError: {e_conn}")
+        traceback.print_exc()
+        # ここでSlackにエラー応答を返すことも検討（ただしタイムアウトに注意）
+        return "Failed to enqueue task due to backend issue.", 500
+    except Exception as e:
+        event_id = body.get("event_id", "N/A") # エラー時にもevent_idを取得試行
+        print(f"[ERROR] Failed to enqueue task (Event ID: {event_id}) for unknown reason: {e}")
+        traceback.print_exc()
+        # ここでSlackにエラー応答を返すことも検討
+        return "Failed to process your request due to an internal error.", 500
+
+    # Immediate 200 response for Slack (変更なし)
     return "", 200
 # -----------------------------------------------
 

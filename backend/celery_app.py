@@ -15,6 +15,7 @@ celery_app = Celery(
 celery_app.conf.update(
     timezone="Asia/Tokyo",
     enable_utc=False,
+    broker_connection_retry_on_startup=True, 
 )
 
 # 5 分に 1 回の Beat スケジュール

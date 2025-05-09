@@ -1,181 +1,55 @@
 {
-    "taskDefinitionArn": "arn:aws:ecs:ap-northeast-1:904368995258:task-definition/aiqly-backend:20",
-    "containerDefinitions": [
+  "family": "aiqly-backend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "3072",
+  "executionRoleArn": "arn:aws:iam::904368995258:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::904368995258:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "backend",
+      "image": "IMAGE_PLACEHOLDER",
+      "essential": true,
+      "portMappings": [
         {
-            "name": "backend",
-            "image": "904368995258.dkr.ecr.ap-northeast-1.amazonaws.com/chachat-backend:latest",
-            "cpu": 0,
-            "memoryReservation": 512,
-            "portMappings": [
-                {
-                    "containerPort": 8000,
-                    "hostPort": 8000,
-                    "protocol": "tcp",
-                    "name": "backend-8000-tcp",
-                    "appProtocol": "http"
-                }
-            ],
-            "essential": true,
-            "environment": [
-                {
-                    "name": "FLASK_APP",
-                    "value": "backend.main"
-                },
-                {
-                    "name": "SLACK_REDIRECT_URI",
-                    "value": "https://app.aiqly.co/slack/oauth/callback"
-                },
-                {
-                    "name": "SLACK_SCOPES",
-                    "value": "app_mentions:read,chat:write"
-                },
-                {
-                    "name": "SESSION_COOKIE_SAMESITE",
-                    "value": "None"
-                },
-                {
-                    "name": "CHROMA_DB_IMPL",
-                    "value": "postgres"
-                },
-                {
-                    "name": "FLASK_ENV",
-                    "value": "production"
-                },
-                {
-                    "name": "GDRIVE_WEBHOOK_URL",
-                    "value": "https://app.aiqly.co/webhook/drive"
-                },
-                {
-                    "name": "SESSION_COOKIE_SECURE",
-                    "value": "True"
-                }
-            ],
-            "environmentFiles": [],
-            "mountPoints": [],
-            "volumesFrom": [],
-            "secrets": [
-                {
-                    "name": "DATABASE_URL",
-                    "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:DATABASE_URL::"
-                },
-                {
-                    "name": "FLASK_SECRET_KEY",
-                    "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:FLASK_SECRET_KEY::"
-                },
-                {
-                    "name": "GOOGLE_OAUTH_CLIENT_ID",
-                    "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:GOOGLE_OAUTH_CLIENT_ID::"
-                },
-                {
-                    "name": "GOOGLE_OAUTH_CLIENT_SECRET",
-                    "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:GOOGLE_OAUTH_CLIENT_SECRET::"
-                },
-                {
-                    "name": "OPENAI_API_KEY",
-                    "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:OPENAI_API_KEY::"
-                },
-                {
-                    "name": "REDIS_URL",
-                    "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:REDIS_URL::"
-                },
-                {
-                    "name": "SLACK_BOT_TOKEN",
-                    "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:SLACK_BOT_TOKEN::"
-                },
-                {
-                    "name": "SLACK_CLIENT_ID",
-                    "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:SLACK_CLIENT_ID::"
-                },
-                {
-                    "name": "SLACK_CLIENT_SECRET",
-                    "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:SLACK_CLIENT_SECRET::"
-                },
-                {
-                    "name": "SLACK_SIGNING_SECRET",
-                    "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:SLACK_SIGNING_SECRET::"
-                },
-                {
-                    "name": "CHROMA_POSTGRES_PASSWORD",
-                    "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:CHROMA_POSTGRES_PASSWORD::"
-                }
-            ],
-            "readonlyRootFilesystem": false,
-            "ulimits": [],
-            "logConfiguration": {
-                "logDriver": "awslogs",
-                "options": {
-                    "awslogs-group": "/ecs/aiqly-backend",
-                    "mode": "non-blocking",
-                    "awslogs-create-group": "true",
-                    "max-buffer-size": "25m",
-                    "awslogs-region": "ap-northeast-1",
-                    "awslogs-stream-prefix": "ecs"
-                },
-                "secretOptions": []
-            },
-            "systemControls": []
+          "containerPort": 8000,
+          "protocol": "tcp",
+          "name": "backend-8000-tcp",
+          "appProtocol": "http"
         }
-    ],
-    "family": "aiqly-backend",
-    "taskRoleArn": "arn:aws:iam::904368995258:role/ecsTaskExecutionRole",
-    "executionRoleArn": "arn:aws:iam::904368995258:role/ecsTaskExecutionRole",
-    "networkMode": "awsvpc",
-    "revision": 20,
-    "volumes": [],
-    "status": "ACTIVE",
-    "requiresAttributes": [
-        {
-            "name": "ecs.capability.execution-role-awslogs"
-        },
-        {
-            "name": "com.amazonaws.ecs.capability.ecr-auth"
-        },
-        {
-            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.28"
-        },
-        {
-            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.21"
-        },
-        {
-            "name": "com.amazonaws.ecs.capability.task-iam-role"
-        },
-        {
-            "name": "ecs.capability.execution-role-ecr-pull"
-        },
-        {
-            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.18"
-        },
-        {
-            "name": "ecs.capability.task-eni"
-        },
-        {
-            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.29"
-        },
-        {
-            "name": "com.amazonaws.ecs.capability.logging-driver.awslogs"
-        },
-        {
-            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.19"
-        },
-        {
-            "name": "ecs.capability.secrets.asm.environment-variables"
+      ],
+      "environment": [
+        { "name": "FLASK_APP", "value": "backend.main" },
+        { "name": "FLASK_ENV", "value": "production" },
+        { "name": "SLACK_REDIRECT_URI", "value": "https://app.aiqly.co/slack/oauth/callback" },
+        { "name": "GDRIVE_WEBHOOK_URL", "value": "https://app.aiqly.co/webhook/drive" },
+        { "name": "SESSION_COOKIE_SAMESITE", "value": "None" },
+        { "name": "SESSION_COOKIE_SECURE", "value": "True" },
+        { "name": "CHROMA_DB_IMPL", "value": "postgres" }
+      ],
+      "secrets": [
+        { "name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:DATABASE_URL::" },
+        { "name": "FLASK_SECRET_KEY", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:FLASK_SECRET_KEY::" },
+        { "name": "GOOGLE_OAUTH_CLIENT_ID", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:GOOGLE_OAUTH_CLIENT_ID::" },
+        { "name": "GOOGLE_OAUTH_CLIENT_SECRET", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:GOOGLE_OAUTH_CLIENT_SECRET::" },
+        { "name": "OPENAI_API_KEY", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:OPENAI_API_KEY::" },
+        { "name": "REDIS_URL", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:REDIS_URL::" },
+        { "name": "SLACK_CLIENT_ID", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:SLACK_CLIENT_ID::" },
+        { "name": "SLACK_CLIENT_SECRET", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:SLACK_CLIENT_SECRET::" },
+        { "name": "SLACK_SIGNING_SECRET", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:SLACK_SIGNING_SECRET::" },
+        { "name": "SLACK_BOT_TOKEN", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:SLACK_BOT_TOKEN::" },
+        { "name": "CHROMA_POSTGRES_PASSWORD", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:CHROMA_POSTGRES_PASSWORD::" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/aiqly-backend",
+          "awslogs-create-group": "true",
+          "awslogs-region": "${AWS_REGION}",
+          "awslogs-stream-prefix": "ecs"
         }
-    ],
-    "placementConstraints": [],
-    "compatibilities": [
-        "EC2",
-        "FARGATE"
-    ],
-    "runtimePlatform": {
-        "cpuArchitecture": "ARM64",
-        "operatingSystemFamily": "LINUX"
-    },
-    "requiresCompatibilities": [
-        "FARGATE"
-    ],
-    "cpu": "1024",
-    "memory": "3072",
-    "registeredAt": "2025-05-06T17:22:55.417000+09:00",
-    "registeredBy": "arn:aws:sts::904368995258:assumed-role/github-actions-deploy/GitHubActions",
-    "enableFaultInjection": false
+      }
+    }
+  ]
 }

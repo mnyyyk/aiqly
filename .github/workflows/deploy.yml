@@ -97,7 +97,6 @@ jobs:
             --network-configuration "awsvpcConfiguration={subnets=[subnet-032da3af4dc382e44,subnet-09512824c0aaea846,subnet-04a264dde050c95e5],securityGroups=[sg-049ab2067088e7119],assignPublicIp=DISABLED}" \
             --overrides '{"containerOverrides":[{"name":"backend","command":["flask","db","upgrade"]}],"cpu":"256","memory":"512"}' \
             --started-by github-ci \
-            --wait tasksStopped
 
       # --- サービスデプロイ ---
       - name: Deploy to ECS Backend Service

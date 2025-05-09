@@ -67,6 +67,7 @@ if not ingestion_imported:
 from backend.services import retriever
 from backend.services.chat import answer_question
 from backend.tasks import handle_slack_event  # celery async processing
+from backend.tasks import add as add_task  # addタスクをインポート
 
 # --- モデル ---
 from backend.models import (
@@ -1111,3 +1112,16 @@ def init_db_command():
 if __name__ == "__main__":
     print("Starting Flask development server...")
     app.run(debug=True, port=5001, host='0.0.0.0')
+# --- デバッグ用: Celery addタスクをエンキューするAPI ---
+@app.route('/debug/task/add')
+@login_required  # 必要に応じて認証を追加
+def debug_task_add():
+    try:
+        # 4 + 4 を計算させるタスクをエンキュー
+        task = add_task.delay(4, 4)
+        print(f"[DEBUG /debug/task/add] Enqueued add task. Task ID: {task.id}")
+        return jsonify(status='ok', message='Task add(4, 4) enqueued.', task_id=task.id)
+    except Exception as e:
+        print(f"[ERROR /debug/task/add] Failed to enqueue add task: {e}")
+        traceback.print_exc()
+        return jsonify(status='error', message=f'Failed to enqueue add task: {e}'), 500

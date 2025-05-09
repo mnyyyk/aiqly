@@ -1,8 +1,18 @@
 from backend.celery_app import celery_app
+import logging
+logger = logging.getLogger(__name__)
 from backend import models
 from backend.extensions import db
 import re
 from slack_sdk import WebClient
+
+@celery_app.task
+def add(x, y):
+    result = x + y
+    # logger と print の両方でログを出す
+    logger.info(f"======= TASK ADD EXECUTED: {x} + {y} = {result} =======")
+    print(f"======= PRINT TASK ADD EXECUTED: {x} + {y} = {result} =======")
+    return result
 
 def _lazy_ingest_google_sheet(file_id: str, user_id: int):
     """
@@ -13,12 +23,9 @@ def _lazy_ingest_google_sheet(file_id: str, user_id: int):
     return ingest_google_sheet(file_id, user_id)
 
 @celery_app.task
-def update_google_sheet_sources():
-    """
-    DB にある 'gsheet:<fileId>' のソースを取得し直し、
-    変更があれば retriever へ再登録 → インデックス更新。
-    """
-    # 1. gsheet:* ソースを列挙
+def update_google_sheet_sources(file_id=None, user_id=None):
+    logger.info(f"======= UPDATE_GOOGLE_SHEET_SOURCES RECEIVED - file_id: {file_id}, user_id: {user_id} =======")
+    print(f"======= PRINT UPDATE_GOOGLE_SHEET_SOURCES RECEIVED - file_id: {file_id}, user_id: {user_id} =======")
     sheets = db.session.scalars(
         db.select(models.Source).filter(models.Source.name.like("gsheet:%"))
     )
@@ -27,40 +34,38 @@ def update_google_sheet_sources():
         _lazy_ingest_google_sheet(file_id, src.user_id)
 
 @celery_app.task
-def handle_slack_event(event_body: dict):
-    """
-    Slack イベントを非同期で処理するタスク。
-    Flask アプリケーションコンテキストを明示的にプッシュして
-    DB・OpenAI・Slack へ安全にアクセスする。
-    """
-    # 遅延 importで循環参照を防止
-    from backend.main import app as flask_app          # noqa: WPS433
-    from backend.extensions import db                  # noqa: WPS433
-    from backend.models import SlackIntegration        # noqa: WPS433
-    from backend.services.chat import answer_question  # noqa: WPS433
-    from slack_sdk import WebClient                    # noqa: WPS433
+def handle_slack_event(body):
+    logger.info(f"======= HANDLE_SLACK_EVENT RECEIVED (first 100): {str(body)[:100]} =======")
+    print(f"======= PRINT HANDLE_SLACK_EVENT RECEIVED (first 100): {str(body)[:100]} =======")
+    try:
+        from backend.main import app as flask_app          # noqa: WPS433
+        from backend.extensions import db                  # noqa: WPS433
+        from backend.models import SlackIntegration        # noqa: WPS433
+        from backend.services.chat import answer_question  # noqa: WPS433
+        from slack_sdk import WebClient                    # noqa: WPS433
 
-    with flask_app.app_context():
-        event      = event_body.get("event", {})
-        team_id    = event_body.get("team_id")
-        channel_id = event.get("channel")
-        user_text  = event.get("clean_text", "").strip()
+        with flask_app.app_context():
+            event      = body.get("event", {})
+            team_id    = body.get("team_id")
+            channel_id = event.get("channel")
+            user_text  = event.get("clean_text", "").strip()
 
-        if not (team_id and channel_id and user_text):
-            return  # 必須データ不足
+            if not (team_id and channel_id and user_text):
+                return
 
-        integ = db.session.scalars(
-            db.select(SlackIntegration).filter_by(team_id=team_id)
-        ).first()
-        if not integ or not integ.bot_token:
-            return  # 未設定
+            integ = db.session.scalars(
+                db.select(SlackIntegration).filter_by(team_id=team_id)
+            ).first()
+            if not integ or not integ.bot_token:
+                return
 
-        # OpenAI で回答生成
-        answer = answer_question(user_text, integ.user_id)
-
-        # Slack へ返信
-        client = WebClient(token=integ.bot_token)
-        try:
+            answer = answer_question(user_text, integ.user_id)
+            client = WebClient(token=integ.bot_token)
             client.chat_postMessage(channel=channel_id, text=answer)
-        except Exception as exc:
-            print(f"[handle_slack_event] Failed to post: {exc}")
+
+        logger.info("======= Slack event processed successfully. =======")
+        print("======= PRINT Slack event processed successfully. =======")
+    except Exception as e:
+        logger.error(f"======= ERROR processing slack event: {e} =======", exc_info=True)
+        print(f"======= PRINT ERROR processing slack event: {e} =======")
+        raise

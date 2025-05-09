@@ -11,13 +11,15 @@ permissions:
 env:
   AWS_REGION: ap-northeast-1
   ECR_REPO: 904368995258.dkr.ecr.ap-northeast-1.amazonaws.com/chachat-backend
+  ECS_CLUSTER: aiqly-prod
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -36,8 +38,7 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-
-      - name: Build & push multi‑arch image
+      - name: Build & push multi-arch image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -47,46 +48,70 @@ jobs:
           cache-to: type=registry,ref=${{ env.ECR_REPO }}:buildcache,mode=max,image-manifest=true
           cache-from: type=registry,ref=${{ env.ECR_REPO }}:buildcache
 
-      - name: Render new task definition
-        id: render_td
+      # --- Backend サービスのタスク定義登録 ---
+      - name: Prepare Backend Task Definition JSON
+        id: prepare_td_backend
         run: |
-          # 1. pull latest task definition as template
-          aws ecs describe-task-definition \
-            --task-definition aiqly-backend \
-            --query 'taskDefinition' \
-            --output json > taskdef.json
+          # td_backend.json内のイメージ名を最新のECR URI:latestに置換します。
+          # (td_backend.json内の "image": "IMAGE_PLACEHOLDER" のような記述を置換する想定)
+          # もしtd_backend.jsonに直接ECR URIを記述している場合は、このステップはcpだけでもOKです。
+          cp td_backend.json taskdef_backend_for_registration.json
+          sed -i "s|IMAGE_PLACEHOLDER|${{ env.ECR_REPO }}:latest|g" taskdef_backend_for_registration.json
+          echo "Prepared taskdef_backend_for_registration.json"
 
-          # 2. replace image tag with :latest (just built), strip AWS‑managed fields
-          jq --arg IMAGE "${{ env.ECR_REPO }}:latest" '
-              .containerDefinitions[0].image = $IMAGE
-              | del(.taskDefinitionArn, .revision, .status, .compatibilities,
-                     .registeredAt, .registeredBy, .requiresAttributes)
-          ' taskdef.json > taskdef_new.json
-
-      - name: Register task definition
-        id: register_td
+      - name: Register Backend Task Definition
+        id: register_td_backend
         run: |
           NEW_TD_ARN=$(aws ecs register-task-definition \
-              --cli-input-json file://taskdef_new.json \
+              --cli-input-json file://taskdef_backend_for_registration.json \
               --query 'taskDefinition.taskDefinitionArn' \
               --output text)
-          echo "new_td=$NEW_TD_ARN" >> "$GITHUB_OUTPUT"
+          echo "new_td_backend=$NEW_TD_ARN" >> "$GITHUB_OUTPUT"
 
+      # --- Celery Worker サービスのタスク定義登録 ---
+      - name: Prepare Worker Task Definition JSON
+        id: prepare_td_worker
+        run: |
+          # td_worker.json内のイメージ名を最新のECR URI:latestに置換します。
+          cp td_worker.json taskdef_worker_for_registration.json
+          sed -i "s|IMAGE_PLACEHOLDER|${{ env.ECR_REPO }}:latest|g" taskdef_worker_for_registration.json
+          echo "Prepared taskdef_worker_for_registration.json"
+
+      - name: Register Worker Task Definition
+        id: register_td_worker
+        run: |
+          NEW_TD_ARN=$(aws ecs register-task-definition \
+              --cli-input-json file://taskdef_worker_for_registration.json \
+              --query 'taskDefinition.taskDefinitionArn' \
+              --output text)
+          echo "new_td_worker=$NEW_TD_ARN" >> "$GITHUB_OUTPUT"
+
+      # --- Alembic マイグレーション (Backendタスク定義を使用) ---
       - name: Run Alembic migrations on RDS
         run: |
           aws ecs run-task \
-            --cluster aiqly-prod \
+            --cluster ${{ env.ECS_CLUSTER }} \
             --launch-type FARGATE \
-            --task-definition ${{ steps.register_td.outputs.new_td }} \
+            --task-definition ${{ steps.register_td_backend.outputs.new_td_backend }} \
             --count 1 \
             --network-configuration "awsvpcConfiguration={subnets=[subnet-032da3af4dc382e44,subnet-09512824c0aaea846,subnet-04a264dde050c95e5],securityGroups=[sg-049ab2067088e7119],assignPublicIp=DISABLED}" \
             --overrides '{"containerOverrides":[{"name":"backend","command":["flask","db","upgrade"]}],"cpu":"256","memory":"512"}' \
-            --started-by github-ci
+            --started-by github-ci \
+            --wait tasksStopped
 
-      - name: Deploy to ECS
+      # --- サービスデプロイ ---
+      - name: Deploy to ECS Backend Service
         run: |
           aws ecs update-service \
-            --cluster aiqly-prod \
+            --cluster ${{ env.ECS_CLUSTER }} \
             --service backend \
-            --task-definition ${{ steps.register_td.outputs.new_td }} \
+            --task-definition ${{ steps.register_td_backend.outputs.new_td_backend }} \
+            --force-new-deployment
+
+      - name: Deploy to ECS Worker Service
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service celery-worker \
+            --task-definition ${{ steps.register_td_worker.outputs.new_td_worker }} \
             --force-new-deployment

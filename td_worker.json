@@ -1,0 +1,45 @@
+{
+  "family": "aiqly-worker",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::904368995258:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::904368995258:role/aiqlyTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "worker",
+      "image": "IMAGE_PLACEHOLDER",
+      "essential": true,
+      "entryPoint": ["celery"],
+      "command": [
+        "-A",
+        "backend.celery_app",
+        "worker",
+        "-Q",
+        "default",
+        "--pool",
+        "solo",
+        "--loglevel",
+        "DEBUG"
+      ],
+      "environment": [
+        { "name": "FLASK_ENV", "value": "production" }
+      ],
+      "secrets": [
+        { "name": "REDIS_URL", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:REDIS_URL::" },
+        { "name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:DATABASE_URL::" },
+        { "name": "OPENAI_API_KEY", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:OPENAI_API_KEY::" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/celery-worker",
+          "awslogs-create-group": "true",
+          "awslogs-region": "${AWS_REGION}",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

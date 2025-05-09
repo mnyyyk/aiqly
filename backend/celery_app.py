@@ -26,8 +26,14 @@ celery_app.conf.beat_schedule = {
     }
 }
 
-print("="*50)
+print("="*80)
 print("CELERY APP INITIALIZED. REGISTERED TASKS:")
-for task_name in celery_app.tasks.keys():
-    print(f"- {task_name}")
-print("="*50)
+if celery_app.tasks:  # tasks属性が存在するか確認
+    for task_name in celery_app.tasks.keys():
+        print(f"  - Registered Task: {task_name}")
+else:
+    print("  - No tasks seem to be registered with this Celery app instance.")
+print(f"  - Celery App Name: {celery_app.main}")
+print(f"  - Included Modules: {celery_app.conf.include}")
+print(f"  - Broker URL: {celery_app.conf.broker_url}")
+print("="*80)

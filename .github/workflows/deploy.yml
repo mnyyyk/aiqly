@@ -52,10 +52,10 @@ jobs:
       - name: Prepare Backend Task Definition JSON
         id: prepare_td_backend
         run: |
-          # td_backend.json内のイメージ名を最新のECR URI:latestに置換します。
-          # (td_backend.json内の "image": "IMAGE_PLACEHOLDER" のような記述を置換する想定)
-          # もしtd_backend.jsonに直接ECR URIを記述している場合は、このステップはcpだけでもOKです。
-          cp td_backend.json taskdef_backend_for_registration.json
+          # td-backend.json内のイメージ名を最新のECR URI:latestに置換します。
+          # (td-backend.json内の "image": "IMAGE_PLACEHOLDER" のような記述を置換する想定)
+          # もしtd-backend.jsonに直接ECR URIを記述している場合は、このステップはcpだけでもOKです。
+          cp td-backend.json taskdef_backend_for_registration.json
           sed -i "s|IMAGE_PLACEHOLDER|${{ env.ECR_REPO }}:latest|g" taskdef_backend_for_registration.json
           echo "Prepared taskdef_backend_for_registration.json"
 

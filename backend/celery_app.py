@@ -25,3 +25,9 @@ celery_app.conf.beat_schedule = {
         "schedule": timedelta(minutes=5),
     }
 }
+
+print("="*50)
+print("CELERY APP INITIALIZED. REGISTERED TASKS:")
+for task_name in celery_app.tasks.keys():
+    print(f"- {task_name}")
+print("="*50)

@@ -23,9 +23,7 @@
         "--loglevel",
         "DEBUG"
       ],
-      "environment": [
-        { "name": "FLASK_ENV", "value": "production" }
-      ],
+      "environment": [],
       "secrets": [
         { "name": "REDIS_URL", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:REDIS_URL::" },
         { "name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:DATABASE_URL::" },

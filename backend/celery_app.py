@@ -37,3 +37,29 @@ print(f"  - Celery App Name: {celery_app.main}")
 print(f"  - Included Modules: {celery_app.conf.include}")
 print(f"  - Broker URL: {celery_app.conf.broker_url}")
 print("="*80)
+
+# === Celery worker signals hook ===
+from celery.signals import worker_ready, worker_shutdown
+import logging  # loggingをインポート
+
+logger = logging.getLogger(__name__)  # ロガーを取得
+
+@worker_ready.connect
+def worker_ready_handler(sender, **kwargs):
+    msg = f"====== WORKER READY SIGNAL: Worker {sender.hostname} is ready to process tasks. ======"
+    print(msg)
+    logger.info(msg)
+    print(f"====== Worker {sender.hostname} - Queues: {sender.app.amqp.queues} ======")
+    logger.info(f"====== Worker {sender.hostname} - Queues: {sender.app.amqp.queues} ======")
+    print(f"====== Worker {sender.hostname} - Consumer: {sender.consumer} ======")
+    logger.info(f"====== Worker {sender.hostname} - Consumer: {sender.consumer} ======")
+
+@worker_shutdown.connect
+def worker_shutdown_handler(sender, **kwargs):
+    msg = f"====== WORKER SHUTDOWN SIGNAL: Worker {sender.hostname} is shutting down. ======"
+    print(msg)
+    logger.info(msg)
+
+print("="*80)
+print("CELERY APP SCRIPT END. Worker signals connected.")
+print("="*80)

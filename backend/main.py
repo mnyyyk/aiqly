@@ -20,6 +20,7 @@ import time
 import io
 import pandas as pd  # ファイル先頭のimport部分に追加
 
+
 from uuid import uuid4
 import secrets
 from datetime import datetime, timezone
@@ -42,6 +43,9 @@ from backend.services import retriever
 from backend.services.chat import answer_question
 from backend.tasks import handle_slack_event  # celery async processing
 from backend.tasks import add as add_task  # addタスクをインポート
+
+# --- Google Cookies Blueprint ---
+from backend.routes.google_cookies import google_cookies_bp
 
 # --- モデル ---
 from backend.models import (
@@ -194,6 +198,7 @@ if SLACK_REDIRECT_URI:
         app.config.setdefault("SESSION_COOKIE_SAMESITE", "Lax")
 # ------------------------------------------------------------------
 # Google OAuth Blueprint
+CORS(app, supports_credentials=True)
 google_bp = make_google_blueprint(
     client_id=os.getenv("GOOGLE_OAUTH_CLIENT_ID"),
     client_secret=os.getenv("GOOGLE_OAUTH_CLIENT_SECRET"),
@@ -209,6 +214,8 @@ google_bp = make_google_blueprint(
     reprompt_consent=True  # ★ 既存ユーザーにも同意画面を再表示
 )
 app.register_blueprint(google_bp, url_prefix="/login")
+# Register Google‑Cookies API blueprint
+app.register_blueprint(google_cookies_bp, url_prefix="/api")
 CORS(app, supports_credentials=True)
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'change-this-very-secret-key-in-production')
 if app.config['SECRET_KEY'] == 'change-this-very-secret-key-in-production': print("WARNING: Use a strong SECRET_KEY!")

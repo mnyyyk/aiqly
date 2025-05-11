@@ -171,3 +171,4 @@ gunicorn==21.2.0
 chromadb==0.4.24
 Flask-Migrate==4.0.5
 psycopg[binary]==3.2.7
+cryptography==42.0.5

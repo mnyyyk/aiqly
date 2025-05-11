@@ -465,61 +465,90 @@ def save_slack_creds():
 @app.route("/slack/oauth/callback")
 def slack_oauth_callback():
     code = request.args.get("code")
-    # CSRF check (server-side state validation, tolerant in dev)
     state_param = request.args.get("state", "")
-    integ = None
-    if state_param:
-        integ = db.session.scalars(
-            db.select(SlackIntegration).filter_by(oauth_state=state_param)
-        ).first()
 
-    # In development, some front‑end flows may omit state.
-    # If state is missing or no match, fall back to the most‑recent integration for the current user.
-    if not integ:
-        print("[Slack OAuth] WARNING: state validation skipped (empty or unmatched).")
-        # --- Fallback: create integration using global creds ---
-        if not integ and current_user.is_authenticated:
-            cid  = os.getenv("SLACK_CLIENT_ID")
-            csec = os.getenv("SLACK_CLIENT_SECRET")
-            if not cid or not csec:
-                return "Slack creds not configured on server", 500
-            integ = SlackIntegration(user_id=current_user.id,
-                                     client_id=cid,
-                                     client_secret=csec)
-            db.session.add(integ)
-            db.session.commit()
-        if not integ:
-            integ = db.session.scalars(
-                db.select(SlackIntegration)
-                  .filter_by(user_id=current_user.id)
-                  .order_by(SlackIntegration.updated_at.desc())
-            ).first()
-            if not integ:
-                return "Invalid state (no integration)", 400
     if not code:
-        return "Missing code", 400
+        flash("Slack認証エラー (codeなし)", "error")
+        return redirect(url_for('serve_admin'))
+
+    if state_param != session.pop("slack_oauth_state", None):
+        flash("Slack認証エラー (不正なリクエスト)", "error")
+        print("[Slack OAuth Error] Invalid CSRF state.")
+        return redirect(url_for('serve_admin'))
+
+    if not current_user.is_authenticated:
+        flash("Slack連携を行うにはログインが必要です。", "error")
+        return redirect(url_for('login', next=url_for('slack_auth_url')))
+
+    client_id_to_use = os.getenv("SLACK_CLIENT_ID")
+    client_secret_to_use = os.getenv("SLACK_CLIENT_SECRET")
+
+    if not client_id_to_use or not client_secret_to_use:
+        flash("SlackアプリのClient ID/Secretがサーバーに設定されていません。", "error")
+        print("[Slack OAuth Error] Global SLACK_CLIENT_ID or SLACK_CLIENT_SECRET not set.")
+        return redirect(url_for('serve_admin'))
 
     redirect_uri = SLACK_REDIRECT_URI or url_for("slack_oauth_callback", _external=True)
-    resp = requests.post(
-        "https://slack.com/api/oauth.v2.access",
-        data={
-            "client_id": integ.client_id,
-            "client_secret": integ.client_secret,
+
+    try:
+        resp_data = {
+            "client_id": client_id_to_use,
+            "client_secret": client_secret_to_use,
             "code": code,
             "redirect_uri": redirect_uri,
-        },
-    ).json()
-    if not resp.get("ok"):
-        return f"Slack OAuth Failed: {resp}", 400
+        }
+        print(f"[Slack OAuth] Requesting access token with client_id: {client_id_to_use[:5]}...")
+        resp = requests.post("https://slack.com/api/oauth.v2.access", data=resp_data).json()
 
-    integ.bot_token = resp["access_token"]
-    integ.team_id = resp.get("team", {}).get("id")
-    integ.updated_at = datetime.utcnow()
-    db.session.commit()
-    # Clear stored oauth_state so it cannot be reused
-    integ.oauth_state = None
-    db.session.commit()
-    return "Slack workspace authorised! You can close this window."
+        if not resp.get("ok"):
+            error_message = resp.get("error", "Unknown error")
+            flash(f"Slack認証トークン取得失敗: {error_message}", "error")
+            print(f"[Slack OAuth Error] oauth.v2.access failed: {resp}")
+            return redirect(url_for('serve_admin'))
+
+        new_bot_token = resp.get("access_token")
+        new_team_id = resp.get("team", {}).get("id")
+        team_name = resp.get("team", {}).get("name")
+
+        if not new_bot_token or not new_team_id:
+            flash("Slack認証で必要な情報(トークンまたはチームID)が取得できませんでした。", "error")
+            print(f"[Slack OAuth Error] Missing bot_token or team_id in response: {resp}")
+            return redirect(url_for('serve_admin'))
+
+        user_id_for_integration = current_user.id
+
+        integration = db.session.scalars(
+            db.select(SlackIntegration).filter_by(user_id=user_id_for_integration)
+        ).first()
+
+        if integration:
+            print(f"[Slack OAuth] Updating existing integration for user_id: {user_id_for_integration}")
+            integration.bot_token = new_bot_token
+            integration.team_id = new_team_id
+            integration.client_id = client_id_to_use
+            integration.client_secret = client_secret_to_use
+            integration.updated_at = datetime.now(timezone.utc)
+        else:
+            print(f"[Slack OAuth] Creating new integration for user_id: {user_id_for_integration}")
+            integration = SlackIntegration(
+                user_id=user_id_for_integration,
+                team_id=new_team_id,
+                bot_token=new_bot_token,
+                client_id=client_id_to_use,
+                client_secret=client_secret_to_use
+            )
+            db.session.add(integration)
+
+        db.session.commit()
+        flash(f"Slackワークスペース「{team_name or new_team_id}」との連携が正常に完了しました。", "success")
+        return redirect(url_for('serve_admin'))
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"[Slack OAuth Exception] {e}")
+        traceback.print_exc()
+        flash(f"Slack認証中に予期せぬエラーが発生しました: {e}", "error")
+        return redirect(url_for('serve_admin'))
 
 # ---------- Slack Events Route ----------
 @app.route("/slack/events", methods=["POST"])

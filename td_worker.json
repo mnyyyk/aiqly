@@ -27,7 +27,8 @@
       "secrets": [
         { "name": "REDIS_URL", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:REDIS_URL::" },
         { "name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:DATABASE_URL::" },
-        { "name": "OPENAI_API_KEY", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:OPENAI_API_KEY::" }
+        { "name": "OPENAI_API_KEY", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:OPENAI_API_KEY::" },
+        { "name": "FERNET_KEY", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:FERNET_KEY::" }
       ],
       "logConfiguration": {
         "logDriver": "awslogs",

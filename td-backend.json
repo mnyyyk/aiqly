@@ -41,7 +41,8 @@
         { "name": "SLACK_BOT_TOKEN", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:SLACK_BOT_TOKEN::" },
         { "name": "SLACK_CLIENT_ID", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:SLACK_CLIENT_ID::" },
         { "name": "SLACK_CLIENT_SECRET", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:SLACK_CLIENT_SECRET::" },
-        { "name": "SLACK_SIGNING_SECRET", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:SLACK_SIGNING_SECRET::" }
+        { "name": "SLACK_SIGNING_SECRET", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:SLACK_SIGNING_SECRET::" },
+        { "name": "FERNET_KEY", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:FERNET_KEY::" }
       ],
       "readonlyRootFilesystem": false,
       "ulimits": [],

@@ -17,7 +17,7 @@
         "backend.celery_app",
         "worker",
         "-Q",
-        "default",
+        "default,celery",
         "--pool",
         "solo",
         "--loglevel",

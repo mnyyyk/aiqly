@@ -21,34 +21,13 @@ from selenium.common.exceptions import TimeoutException, WebDriverException
 import json
 import base64
 from backend.models import db, GoogleCookie  # GoogleCookie: user_id PK, cookie_json_encrypted column
+from backend.extensions import get_google_cookies
 
 # --- ロガー設定 ---
 import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# --- Google Cookie ヘルパ ---
-def _load_google_cookies(user_id: int):
-    """
-    Google Sites 用に保存されているユーザーの Cookie を復号して返す。
-    DB 側では base64 でシンプルにエンコードされている前提。
-    戻り値: Selenium add_cookie 用の辞書リスト または None
-    """
-    if not user_id:
-        return None
-    rec = db.session.get(GoogleCookie, user_id)
-    if not rec:
-        logger.info("No Google cookie stored for user_id=%s", user_id)
-        return None
-    try:
-        raw = base64.b64decode(rec.cookie_json_encrypted).decode("utf-8")
-        cookies = json.loads(raw)
-        if isinstance(cookies, list):
-            logger.info("Loaded %d cookies for user_id=%s", len(cookies), user_id)
-            return cookies
-    except Exception as e:
-        logger.warning("Failed to decode cookies for user_id=%s: %s", user_id, e)
-    return None
 
 # === シンプルな requests 取得（まずはこちらで試し、失敗したら Selenium） ===
 def fetch_text_simple(url: str, user_id: int | None = None, timeout_sec=15) -> str | None:
@@ -56,7 +35,7 @@ def fetch_text_simple(url: str, user_id: int | None = None, timeout_sec=15) -> s
     # --- optional Google Sites cookie injection ---------------------------
     cookies_to_add = None
     if "sites.google.com" in url and user_id is not None:
-        cookies_to_add = _load_google_cookies(user_id)
+        cookies_to_add = get_google_cookies(user_id)
 
     sess = requests.Session()
     if cookies_to_add:
@@ -158,7 +137,7 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
     logger.info("Setting up WebDriver...")
     # --- Google Sites 専用: Cookie 注入で Private ページを取得 ---
     use_google_cookie = "sites.google.com" in url and user_id is not None
-    cookies_to_inject = _load_google_cookies(user_id) if use_google_cookie else None
+    cookies_to_inject = get_google_cookies(user_id) if use_google_cookie else None
 
     driver = None
     try:

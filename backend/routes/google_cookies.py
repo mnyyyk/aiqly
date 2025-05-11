@@ -5,6 +5,7 @@ from backend.models import db, GoogleCookie
 from backend.utils.crypto import encrypt_blob
 
 bp = Blueprint("google_cookies", __name__, url_prefix="/api")
+google_cookies_bp = bp
 
 @bp.post("/google-cookies")
 @login_required

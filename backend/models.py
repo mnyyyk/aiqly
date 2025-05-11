@@ -3,7 +3,7 @@
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from backend.extensions import db  # extensions.py から db をインポート
-from sqlalchemy import Text, ForeignKey, DateTime, BigInteger, LargeBinary  # 追加: LargeBinary
+from sqlalchemy import Text, ForeignKey, DateTime, BigInteger, LargeBinary, UUID  # 追加: UUID
 from sqlalchemy.sql import func # func をインポート (タイムスタンプ用)
 from sqlalchemy.orm import relationship # relationship をインポート
 
@@ -176,20 +176,24 @@ class SlackIntegration(db.Model):
 
 # --- ▼▼▼ GoogleCookie モデル (ユーザーごとに Google Sites 用 Cookie を保持) ▼▼▼ ---
 class GoogleCookie(db.Model):
-    """
-    Google ログイン済み Cookie(JSON) を暗号化して保持し、
-    非公開 Google Sites をヘッドレスブラウザで取得する際に利用する。
-    """
     __tablename__ = "google_cookies"
 
-    user_id                = db.Column(db.Integer, ForeignKey("users.id"), primary_key=True)
-    cookie_json_encrypted  = db.Column(LargeBinary, nullable=False)  # AES 等で暗号化された JSON
-    updated_at             = db.Column(DateTime(timezone=True), server_default=func.now(),
-                                       onupdate=func.now())
+    # 主キー
+    id = db.Column(db.Integer, primary_key=True)
 
-    # one‑to‑one: User.google_cookie で参照できる
-    user = relationship("User", backref="google_cookie", uselist=False)
+    # ログインしているユーザーを UUID で識別
+    user_id = db.Column(db.UUID(as_uuid=True), nullable=False)
+
+    # Cookie（JSON）を暗号化して格納
+    cookie_json_encrypted = db.Column(db.LargeBinary, nullable=False)
+
+    # レコード作成日時
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
 
     def __repr__(self):
-        return f"<GoogleCookie user_id={self.user_id}>"
+        return f"<GoogleCookie id={self.id} user_id={self.user_id}>"
 # --- ▲▲▲ GoogleCookie モデル追加 ▲▲▲ ---

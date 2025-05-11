@@ -18,6 +18,8 @@ celery_app.conf.update(
     broker_connection_retry_on_startup=True, 
 )
 
+celery_app.conf.task_default_queue = "default"
+
 # 5 分に 1 回の Beat スケジュール
 celery_app.conf.beat_schedule = {
     "update-google-sheets-every-5min": {

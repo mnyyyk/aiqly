@@ -819,7 +819,7 @@ def add_url():
     if not url: return jsonify({"status": "error", "message": "URL required"}), 400
     print(f"User {user_id} overwriting URL: {url}"); delete_success = retriever.delete_documents_by_source(url, user_id)
     if not delete_success: print(f"Warning: Failed delete for User {user_id}, URL {url}.")
-    text = ingestion_utils.fetch_text_from_url(url)
+    text = ingestion_utils.fetch_text_from_url(url, current_user.id)
     if not text or not text.strip(): return jsonify({"status": "error", "message": "Fetch failed or no text"}), 400
     chunks = ingestion_utils.chunk_text(text)
     if not chunks: return jsonify({"status": "error", "message": "No chunks generated"}), 400

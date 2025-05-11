@@ -51,13 +51,32 @@ def _load_google_cookies(user_id: int):
     return None
 
 # === シンプルな requests 取得（まずはこちらで試し、失敗したら Selenium） ===
-def fetch_text_simple(url: str, timeout_sec=15) -> str | None:
+def fetch_text_simple(url: str, user_id: int | None = None, timeout_sec=15) -> str | None:
     """requests だけで取得できるページはここで済ませる"""
+    # --- optional Google Sites cookie injection ---------------------------
+    cookies_to_add = None
+    if "sites.google.com" in url and user_id is not None:
+        cookies_to_add = _load_google_cookies(user_id)
+
+    sess = requests.Session()
+    if cookies_to_add:
+        for ck in cookies_to_add:
+            try:
+                sess.cookies.set(
+                    ck.get("name"),
+                    ck.get("value"),
+                    domain=ck.get("domain", ".google.com"),
+                    path=ck.get("path", "/"),
+                )
+            except Exception as ck_err:
+                logger.warning("Failed to set cookie %s: %s", ck.get("name"), ck_err)
+    else:
+        sess = requests  # fallback to requests module for one‑shot call
     try:
-        r = requests.get(url,
-                         timeout=timeout_sec,
-                         allow_redirects=True,
-                         headers={"User-Agent": "Mozilla/5.0 (compatible; AiQlyBot/1.0)"})
+        r = sess.get(url,
+                     timeout=timeout_sec,
+                     allow_redirects=True,
+                     headers={"User-Agent": "Mozilla/5.0 (compatible; AiQlyBot/1.0)"})
         if r.status_code // 100 != 2:
             logger.warning("Non‑2xx status %s for %s", r.status_code, url)
             return None
@@ -128,7 +147,7 @@ def extract_structured_text(element, base_url):
 def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wait_after_load_sec=5, scroll_attempts=3) -> str | None:
     """Seleniumを使ってURLを開き、構造化テキストを抽出する"""
     # まずは簡易 requests で取れないか試す
-    simple = fetch_text_simple(url, timeout_sec)
+    simple = fetch_text_simple(url, user_id, timeout_sec)
     if simple:
         return simple
     # ↓ ここから先は従来の Selenium 流れ ...

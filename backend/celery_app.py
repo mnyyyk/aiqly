@@ -46,13 +46,15 @@ logger = logging.getLogger(__name__)  # ロガーを取得
 
 @worker_ready.connect
 def worker_ready_handler(sender, **kwargs):
-    msg = f"====== WORKER READY SIGNAL: Worker {sender.hostname} is ready to process tasks. ======"
+    msg = f"====== WORKER READY SIGNAL: Worker {getattr(sender, 'hostname', 'N/A')} is ready. ======"  # getattrで安全にアクセス
     print(msg)
     logger.info(msg)
-    print(f"====== Worker {sender.hostname} - Queues: {sender.app.amqp.queues} ======")
-    logger.info(f"====== Worker {sender.hostname} - Queues: {sender.app.amqp.queues} ======")
-    print(f"====== Worker {sender.hostname} - Consumer: {sender.consumer} ======")
-    logger.info(f"====== Worker {sender.hostname} - Consumer: {sender.consumer} ======")
+    queues_info = getattr(sender.app.amqp, 'queues', {})  # 安全にアクセス
+    print(f"====== Worker {getattr(sender, 'hostname', 'N/A')} - Queues: {queues_info} ======")
+    logger.info(f"====== Worker {getattr(sender, 'hostname', 'N/A')} - Queues: {queues_info} ======")
+    # senderオブジェクトの内容を確認するために、他の属性も試してみる (デバッグ用)
+    # print(f"====== Worker Sender Object Type: {type(sender)} ======")
+    # print(f"====== Worker Sender Object Dir: {dir(sender)} ======")
 
 @worker_shutdown.connect
 def worker_shutdown_handler(sender, **kwargs):

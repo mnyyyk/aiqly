@@ -37,33 +37,7 @@ from flask_login import UserMixin, login_user, logout_user, login_required, curr
 from werkzeug.security import generate_password_hash, check_password_hash
 from backend.forms import RegistrationForm, LoginForm
 
- # --- 文章抽出サービス (ingestion) ---
-# 検索順:
-#  1) backend.services.ingestion (推奨: services パッケージを backend 内に置く)
-#  2) backend.ingestion          (backend 直下に ingestion.py がある場合)
-#  3) ingestion                  (プロジェクト直下に ingestion.py がある場合)
-ingestion_imported = False
-for mod_path in [
-    "backend.services.ingestion",
-    "backend.ingestion",
-    "ingestion",
-]:
-    try:
-        ingestion_mod = __import__(mod_path, fromlist=["dummy"])
-        fetch_text_from_url = ingestion_mod.fetch_text_from_url
-        chunk_text = ingestion_mod.chunk_text
-        extract_text_from_pdf = ingestion_mod.extract_text_from_pdf
-        extract_text_from_docx = ingestion_mod.extract_text_from_docx
-        ingestion_imported = True
-        break
-    except ModuleNotFoundError:
-        continue
-
-if not ingestion_imported:
-    raise ModuleNotFoundError(
-        "ingestion utility could not be imported. "
-        "Ensure ingestion.py is located in project root, backend/, or backend/services/."
-    )
+from backend.services import ingestion as ingestion_utils
 from backend.services import retriever
 from backend.services.chat import answer_question
 from backend.tasks import handle_slack_event  # celery async processing
@@ -711,7 +685,7 @@ def ingest_google_doc():
             mimeType="text/plain"
         ).execute()
         text = raw.decode("utf-8")
-        chunks = chunk_text(text)
+        chunks = ingestion_utils.chunk_text(text)
         retriever.add_documents(chunks, f"gdoc:{file_id}", current_user.id)
         return jsonify({"status": "ok", "message": "Google ドキュメントを取り込みました"})
     except Exception as e:
@@ -838,9 +812,9 @@ def add_url():
     if not url: return jsonify({"status": "error", "message": "URL required"}), 400
     print(f"User {user_id} overwriting URL: {url}"); delete_success = retriever.delete_documents_by_source(url, user_id)
     if not delete_success: print(f"Warning: Failed delete for User {user_id}, URL {url}.")
-    text = fetch_text_from_url(url)
+    text = ingestion_utils.fetch_text_from_url(url)
     if not text or not text.strip(): return jsonify({"status": "error", "message": "Fetch failed or no text"}), 400
-    chunks = chunk_text(text)
+    chunks = ingestion_utils.chunk_text(text)
     if not chunks: return jsonify({"status": "error", "message": "No chunks generated"}), 400
     add_success = retriever.add_documents(chunks, url, user_id)
     if add_success: return jsonify({"status": "ok", "message": f"URL '{url}' (re)added."})
@@ -863,14 +837,14 @@ def upload_file():
             file.save(filepath); print(f"Temp file saved for user {user_id}: {filepath}")
             text, file_ext = None, filename.rsplit('.', 1)[1].lower()
             print(f"Extracting text from: {filename} ({file_ext})")
-            if file_ext == 'pdf': text = extract_text_from_pdf(filepath)
+            if file_ext == 'pdf': text = ingestion_utils.extract_text_from_pdf(filepath)
             elif file_ext in ['xls', 'xlsx']:
                 try:
                     df = pd.read_excel(filepath)
                     text = df.to_string(index=False)
                 except Exception as e:
                     return jsonify({"status": "error", "message": f"Excelファイルの読み込みエラー: {e}"}), 500
-            elif file_ext == 'docx': text = extract_text_from_docx(filepath)
+            elif file_ext == 'docx': text = ingestion_utils.extract_text_from_docx(filepath)
             elif file_ext == 'txt':
                  encodings_to_try = ['utf-8', 'shift-jis', 'euc-jp']; text_read = False
                  for enc in encodings_to_try:
@@ -880,7 +854,7 @@ def upload_file():
                  if not text_read: return jsonify(status="error",message=f"Could not decode '{filename}'."),500
             if text is None and file_ext not in ['txt']: return jsonify(status="error",message=f"Failed extract text from {file_ext}."),500
             elif isinstance(text,str)and not text.strip(): return jsonify(status="error",message=f"No text in '{filename}'."),400
-            chunks = chunk_text(text)
+            chunks = ingestion_utils.chunk_text(text)
             if not chunks: return jsonify({"status": "error", "message": "No chunks generated."}), 500
             add_success = retriever.add_documents(chunks, filename, user_id)
             if add_success: return jsonify({"status": "ok", "message": f"File '{filename}' (re)added."})

@@ -18,10 +18,37 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, WebDriverException
 
+import json
+import base64
+from backend.models import db, GoogleCookie  # GoogleCookie: user_id PK, cookie_json_encrypted column
+
 # --- ロガー設定 ---
 import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+# --- Google Cookie ヘルパ ---
+def _load_google_cookies(user_id: int):
+    """
+    Google Sites 用に保存されているユーザーの Cookie を復号して返す。
+    DB 側では base64 でシンプルにエンコードされている前提。
+    戻り値: Selenium add_cookie 用の辞書リスト または None
+    """
+    if not user_id:
+        return None
+    rec = db.session.get(GoogleCookie, user_id)
+    if not rec:
+        logger.info("No Google cookie stored for user_id=%s", user_id)
+        return None
+    try:
+        raw = base64.b64decode(rec.cookie_json_encrypted).decode("utf-8")
+        cookies = json.loads(raw)
+        if isinstance(cookies, list):
+            logger.info("Loaded %d cookies for user_id=%s", len(cookies), user_id)
+            return cookies
+    except Exception as e:
+        logger.warning("Failed to decode cookies for user_id=%s: %s", user_id, e)
+    return None
 
 # === シンプルな requests 取得（まずはこちらで試し、失敗したら Selenium） ===
 def fetch_text_simple(url: str, timeout_sec=15) -> str | None:
@@ -98,7 +125,7 @@ def extract_structured_text(element, base_url):
     text = re.sub(r'[ \t]+', ' ', text); return text
 
 # --- URLからのテキスト抽出 (変更あり) ---
-def fetch_text_from_url(url: str, timeout_sec=45, wait_after_load_sec=5, scroll_attempts=3) -> str | None:
+def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wait_after_load_sec=5, scroll_attempts=3) -> str | None:
     """Seleniumを使ってURLを開き、構造化テキストを抽出する"""
     # まずは簡易 requests で取れないか試す
     simple = fetch_text_simple(url, timeout_sec)
@@ -108,11 +135,34 @@ def fetch_text_from_url(url: str, timeout_sec=45, wait_after_load_sec=5, scroll_
     logger.info(f"Fetching URL with Selenium: {url}")
     options = webdriver.ChromeOptions(); # オプション設定...
     options.add_argument('--headless'); options.add_argument('--no-sandbox'); options.add_argument('--disable-dev-shm-usage'); options.add_argument('--disable-gpu'); options.add_argument('--log-level=3'); options.add_argument('--disable-blink-features=AutomationControlled'); options.add_experimental_option('excludeSwitches', ['enable-automation']); options.add_experimental_option('useAutomationExtension', False); options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36')
+
+    logger.info("Setting up WebDriver...")
+    # --- Google Sites 専用: Cookie 注入で Private ページを取得 ---
+    use_google_cookie = "sites.google.com" in url and user_id is not None
+    cookies_to_inject = _load_google_cookies(user_id) if use_google_cookie else None
+
     driver = None
     try:
-        logger.info("Setting up WebDriver...")
         service = ChromeService(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=options)
+        # Cookie を注入する場合は一度同ドメインに遷移してから add_cookie()
+        if cookies_to_inject:
+            try:
+                driver.get("https://sites.google.com")  # ドメイン合わせ
+                driver.delete_all_cookies()
+                for ck in cookies_to_inject:
+                    # Selenium add_cookie に入れるキーだけ抽出
+                    driver.add_cookie({
+                        "name": ck.get("name"),
+                        "value": ck.get("value"),
+                        "domain": ck.get("domain", ".google.com"),
+                        "path": ck.get("path", "/"),
+                        "secure": ck.get("secure", True),
+                        "httpOnly": ck.get("httpOnly", False)
+                    })
+                logger.info("Injected %d Google cookies", len(cookies_to_inject))
+            except Exception as cke:
+                logger.warning("Cookie injection failed: %s", cke)
         driver.set_page_load_timeout(timeout_sec)
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         logger.info(f"Navigating to {url}...")

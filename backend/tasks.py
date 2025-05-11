@@ -53,13 +53,19 @@ def handle_slack_event(body):
             if not (team_id and channel_id and user_text):
                 return
 
+            log_prefix = "======= HANDLE_SLACK_EVENT ======="
             integ = db.session.scalars(
                 db.select(SlackIntegration).filter_by(team_id=team_id)
             ).first()
             if not integ or not integ.bot_token:
+                logger.error(f"{log_prefix} SlackIntegration not found or no bot token for team_id: {team_id}")
                 return
 
-            answer = answer_question(user_text, integ.user_id)
+            # ★★★ このログで実際に使われるトークンを確認 ★★★
+            logger.info(f"{log_prefix} USING BOT TOKEN (tasks.py): First 5: {integ.bot_token[:5]}, Last 5: {integ.bot_token[-5:]}, Length: {len(integ.bot_token)}")
+            print(f"{log_prefix} PRINT USING BOT TOKEN (tasks.py): First 5: {integ.bot_token[:5]}, Last 5: {integ.bot_token[-5:]}, Length: {len(integ.bot_token)}")
+
+            answer = answer_question(user_text, integ.user_id, [])
             client = WebClient(token=integ.bot_token)
             client.chat_postMessage(channel=channel_id, text=answer)
 

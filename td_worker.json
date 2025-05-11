@@ -34,7 +34,7 @@
         "options": {
           "awslogs-group": "/ecs/celery-worker",
           "awslogs-create-group": "true",
-          "awslogs-region": "${AWS_REGION}",
+          "awslogs-region": "ap-northeast-1",
           "awslogs-stream-prefix": "ecs"
         }
       }

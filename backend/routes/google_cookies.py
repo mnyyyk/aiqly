@@ -4,7 +4,7 @@ from flask_login import login_required, current_user
 from backend.models import db, GoogleCookie
 from backend.utils.crypto import encrypt_blob
 
-bp = Blueprint("google_cookies", __name__, url_prefix="/api")
+bp = Blueprint("google_cookies", __name__)
 google_cookies_bp = bp
 
 @bp.post("/google-cookies")

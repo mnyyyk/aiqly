@@ -14,6 +14,7 @@ from flask_dance.contrib.google import make_google_blueprint, google as google_c
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
 import urllib.parse
+from urllib.parse import quote
 import json
 import re
 import time
@@ -886,8 +887,9 @@ def get_documents(source_name):
     user_id = current_user.id; print(f"\n--- API Endpoint: /api/documents ---"); print(f"[API] Received raw path segment: '{source_name}'")
     try:
         source_name_decoded = urllib.parse.unquote(source_name); print(f"[API] Decoded source_name: '{source_name_decoded}'")
+        encoded_source = quote(source_name_decoded, safe=":/?&=%#")
         limit = min(request.args.get('limit', default=50, type=int), 100); print(f"[API] Calling retriever.get_documents_by_source with user_id={user_id}, source='{source_name_decoded}', limit={limit}")
-        documents = retriever.get_documents_by_source(source_name_decoded, user_id, limit=limit); print(f"[API] Retriever returned {len(documents)} documents.")
+        documents = retriever.get_documents_by_source(encoded_source, user_id, limit=limit); print(f"[API] Retriever returned {len(documents)} documents.")
         return jsonify({"status": "ok", "source": source_name_decoded, "documents": documents})
     except Exception as e: print(f"[API ERROR] Error in /api/documents for user {user_id}, raw path '{source_name}': {e}"); traceback.print_exc(); return jsonify({"status": "error", "message": f"Failed to retrieve documents for source: {source_name}"}), 500
 
@@ -896,7 +898,8 @@ def get_documents(source_name):
 def delete_source_api(source_name):
     # ...(変更なし)...
     user_id = current_user.id; source_name_decoded = urllib.parse.unquote(source_name); print(f"API delete request user {user_id}, source: {source_name_decoded}")
-    success = retriever.delete_documents_by_source(source_name_decoded, user_id)
+    encoded_source = quote(source_name_decoded, safe=":/?&=%#")
+    success = retriever.delete_documents_by_source(encoded_source, user_id)
     if success: return jsonify({"status": "ok", "message": f"Source '{source_name_decoded}' deleted."})
     else: return jsonify({"status": "error", "message": f"Failed delete source '{source_name_decoded}'. Check logs."}), 500
 

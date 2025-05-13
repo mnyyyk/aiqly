@@ -8,7 +8,6 @@ import re
 import os
 import traceback
 from urllib.parse import urljoin
-from webdriver_manager.chrome import ChromeDriverManager
 
 # Selenium関連
 from selenium import webdriver
@@ -143,19 +142,14 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
 
     driver = None
     try:
-        # --- choose correct ChromeDriver binary automatically ---
-        from webdriver_manager.chrome import ChromeDriverManager
-        system_driver = "/usr/bin/chromedriver"
-        if os.path.exists(system_driver) and os.access(system_driver, os.X_OK):
-            driver_path = system_driver
-            logger.info("Using system chromedriver at %s", driver_path)
-        else:
-            try:
-                driver_path = ChromeDriverManager().install()
-                logger.info("Downloaded chromedriver via webdriver_manager: %s", driver_path)
-            except Exception as dm_err:
-                logger.error("Failed to download chromedriver: %s", dm_err)
-                return None
+        driver_path = "/usr/local/bin/chromedriver"  # Dockerfileで配置したパス
+        if not os.path.exists(driver_path):
+            logger.error(f"ChromeDriver not found at specified path: {driver_path}")
+            return None
+        if not os.access(driver_path, os.X_OK):
+            logger.error(f"ChromeDriver at {driver_path} is not executable.")
+            return None
+        logger.info(f"Using ChromeDriver from: {driver_path}")
 
         service = ChromeService(driver_path)
         driver = webdriver.Chrome(service=service, options=options)

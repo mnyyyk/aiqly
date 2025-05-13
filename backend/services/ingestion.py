@@ -20,6 +20,7 @@ from selenium.common.exceptions import TimeoutException, WebDriverException
 
 import json
 import base64
+import platform
 from backend.models import db, GoogleCookie  # GoogleCookie: user_id PK, cookie_json_encrypted column
 from backend.extensions import get_google_cookies
 
@@ -142,7 +143,14 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
 
     driver = None
     try:
-        service = ChromeService(ChromeDriverManager().install())
+        # --- choose correct ChromeDriver binary depending on architecture ---
+        arch = platform.machine()
+        if arch in ("aarch64", "arm64"):
+            driver_path = ChromeDriverManager(os_type="linux_arm64").install()
+        else:
+            driver_path = ChromeDriverManager().install()
+
+        service = ChromeService(driver_path)
         driver = webdriver.Chrome(service=service, options=options)
         # Cookie を注入する場合は一度同ドメインに遷移してから add_cookie()
         if cookies_to_inject:

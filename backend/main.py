@@ -223,6 +223,7 @@ app.register_blueprint(google_cookies_bp, url_prefix="/api")
 app.register_blueprint(jwt_bp, url_prefix="/api")
 CORS(app, supports_credentials=True)
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'change-this-very-secret-key-in-production')
+app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "change-this-in-prod")
 if app.config['SECRET_KEY'] == 'change-this-very-secret-key-in-production': print("WARNING: Use a strong SECRET_KEY!")
  # --- Database connection ---
 db_uri = os.getenv("DATABASE_URL")

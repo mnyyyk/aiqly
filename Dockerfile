@@ -8,33 +8,31 @@ ARG ARCH=$(dpkg --print-architecture)
 # 2. ログを即時フラッシュ（便利）
 ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 
-# 3. OS 依存パッケージ (PostgreSQLドライバ用など)
-#    + ChromeDriver と Google Chrome に必要なライブラリを追加
+# 3. OS 依存パッケージ (PostgreSQLドライバ用など) と
+#    Chrome / ChromeDriver 導入に最低限必要なランタイム
 RUN --mount=type=cache,target=/var/cache/apt \
     --mount=type=cache,target=/var/lib/apt \
-    apt-get update && apt-get install -y --no-install-recommends \
-      build-essential \
-      libpq-dev \
-      gcc \
-      # ChromeDriver と Google Chrome に必要なライブラリ
-      wget \
-      unzip \
-      jq \
-      curl \
-      gnupg \
-      libglib2.0-0 \
-      libnss3 \
-      libnspr4 \
-      libdbus-1-3 \
-      libatk1.0-0 \
-      libatk-bridge2.0-0 \
-      libcups2 \
-      libdrm2 \
-      libgtk-3-0 \
-      libxss1 \
-      libasound2 \
-      lsb-release \
-      xdg-utils && \
+    set -eux; \
+    apt-get update; \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        build-essential \
+        libpq-dev \
+        gcc \
+        wget \
+        unzip \
+        jq \
+        curl \
+        gnupg \
+        ca-certificates \
+        libasound2 \
+        libnss3 \
+        libxss1 \
+        libatk1.0-0 \
+        libatk-bridge2.0-0 \
+        libdrm2 \
+        libgbm1 \
+        lsb-release \
+        xdg-utils; \
     rm -rf /var/lib/apt/lists/*
 
 # 4. Google Chrome / Chromium ＋ ChromeDriver インストール

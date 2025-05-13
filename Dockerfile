@@ -1,27 +1,32 @@
 # syntax=docker/dockerfile:1.4
-# 1. 軽量な公式 Python イメージ
 FROM python:3.12-slim
 
-# アーキテクチャ自動判定用
-ARG ARCH # Dockerfileの先頭でARGを定義し、後のRUN命令で再定義可能にする
-
-# 2. ログを即時フラッシュ（便利）
+ARG ARCH
 ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 
-# 3. OS 依存パッケージ (ビルドツールとwget/jqなど基本的なもののみ)
+# ステップ3 修正案 (sources.list に contrib non-free を追加する例)
 RUN --mount=type=cache,target=/var/cache/apt \
     --mount=type=cache,target=/var/lib/apt \
-    apt-get update && apt-get install -y --no-install-recommends \
-      # Pythonパッケージのビルドに必要
+    set -eux; \
+    # sources.list を変更して contrib と non-free を追加 (Debian Bookwormの場合)
+    # 注意: non-free を追加することはライセンスポリシーに影響する可能性があります。
+    #       必要なパッケージが本当に non-free にしかないか確認してください。
+    #       多くの場合、main と contrib で十分です。
+    sed -i 's/main/main contrib non-free non-free-firmware/g' /etc/apt/sources.list.d/debian.sources || \
+    sed -i 's/bookworm main/bookworm main contrib non-free non-free-firmware/g' /etc/apt/sources.list || \
+    echo "Failed to modify sources.list, proceeding with default." ; \
+    cat /etc/apt/sources.list.d/debian.sources || cat /etc/apt/sources.list || echo "No sources.list found to display"; \
+    \
+    apt-get update; \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       build-essential \
-      # psycopg2 (PostgreSQLドライバ) のビルドに必要
       libpq-dev \
       gcc \
       wget \
       unzip \
       jq \
       gnupg \
-      ca-certificates && \
+      ca-certificates; \
     rm -rf /var/lib/apt/lists/*
 
 # 4. Google Chrome / Chromium ＋ ChromeDriver インストール

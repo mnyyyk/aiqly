@@ -12,7 +12,6 @@ from urllib.parse import urljoin
 # Selenium関連
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -144,28 +143,13 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
     driver = None
     try:
         # --- choose correct ChromeDriver binary automatically ---
-        # ---- resolve chromedriver path -------------------------------------------------
-        driver_path = None
-        arch = platform.machine().lower()
-        if arch in ("aarch64", "arm64"):
-            # 1) try system chromedriver (installed via apt-get install chromium-driver)
-            system_driver = "/usr/bin/chromedriver"
-            if os.path.exists(system_driver) and os.access(system_driver, os.X_OK):
-                driver_path = system_driver
-                logger.info("Using system chromedriver at %s", driver_path)
-            else:
-                # 2) fallback: let webdriver‑manager try an arm64 build
-                try:
-                    os.environ["WDM_ARCH"] = "arm64"
-                    driver_path = ChromeDriverManager().install()
-                    logger.info("Downloaded arm64 chromedriver to %s", driver_path)
-                except Exception as dl_err:
-                    logger.warning("webdriver‑manager arm64 download failed: %s", dl_err)
-
-        # x86_64 or above fallback
-        if not driver_path:
-            driver_path = ChromeDriverManager().install()
-            logger.info("Using webdriver‑manager provided driver: %s", driver_path)
+        # Use system-installed chromedriver
+        driver_path = "/usr/bin/chromedriver"
+        if os.path.exists(driver_path) and os.access(driver_path, os.X_OK):
+            logger.info("Using system chromedriver at %s", driver_path)
+        else:
+            logger.error("System chromedriver not found at %s. Please install chromium-chromedriver in the container.", driver_path)
+            return None
 
         service = ChromeService(driver_path)
         driver = webdriver.Chrome(service=service, options=options)

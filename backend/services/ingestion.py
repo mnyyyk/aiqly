@@ -62,6 +62,10 @@ def fetch_text_simple(url: str, user_id: int | None = None, timeout_sec=15) -> s
             return None
 
         html_text = r.text.strip()
+        # --- Google "Sign in" page detection → force Selenium fallback ----
+        if "Use your Google Account" in html_text and "Sign in" in html_text and "accounts.google.com" in r.url:
+            logger.info("Detected Google sign‑in page for %s (likely auth required) → fallback to Selenium", url)
+            return None  # treat as failure so caller will try Selenium
         if not html_text:
             logger.warning("Empty body for %s", url)
             return None

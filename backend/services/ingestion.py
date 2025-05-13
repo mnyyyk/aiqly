@@ -144,6 +144,12 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
     driver = None
     try:
         # --- choose correct ChromeDriver binary automatically ---
+        # On ARM (Graviton / Apple‑silicon) containers we must tell webdriver‑manager
+        # to download the arm64 build; otherwise we hit “Exec format error”.
+        import platform, os
+        if platform.machine() in ("aarch64", "arm64"):
+            # webdriver‑manager will look at WDM_ARCH env var
+            os.environ.setdefault("WDM_ARCH", "arm64")
         driver_path = ChromeDriverManager().install()
 
         service = ChromeService(driver_path)

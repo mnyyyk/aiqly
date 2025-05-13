@@ -33,22 +33,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       xdg-utils && \
     rm -rf /var/lib/apt/lists/*
 
-# 4. Google Chrome のインストール (アーキテクチャ自動判定)
-RUN CHROME_DEB="google-chrome-stable_current_${ARCH}.deb" && \
-    wget -q "https://dl.google.com/linux/direct/${CHROME_DEB}" -P /tmp && \
-    apt-get update && apt-get install -y --no-install-recommends /tmp/${CHROME_DEB} && \
-    rm /tmp/${CHROME_DEB} && \
+# 4/5. ブラウザおよび ChromeDriver のインストール (アーキテクチャ判定)
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "amd64" ]; then \
+        # Google Chrome と ChromeDriver via Chrome for Testing
+        CHROME_DEB="google-chrome-stable_current_amd64.deb" && \
+        wget -q "https://dl.google.com/linux/direct/${CHROME_DEB}" -P /tmp && \
+        apt-get update && apt-get install -y --no-install-recommends /tmp/${CHROME_DEB} && \
+        rm /tmp/${CHROME_DEB} && \
+        LATEST_JSON=$(wget -qO- https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json) && \
+        CHROMEDRIVER_URL=$(echo "$LATEST_JSON" | jq -r '.channels.Stable.downloads.chromedriver[] | select(.platform=="linux64") | .url') && \
+        wget -q -O /tmp/chromedriver.zip "$CHROMEDRIVER_URL" && \
+        unzip -q /tmp/chromedriver.zip -d /tmp && \
+        mv /tmp/*/chromedriver /usr/local/bin/chromedriver && \
+        chmod +x /usr/local/bin/chromedriver && \
+        rm /tmp/chromedriver.zip; \
+    else \
+        # ARM64 では Chromium とパッケージ版ドライバを利用
+        apt-get update && apt-get install -y --no-install-recommends chromium chromium-driver && \
+        ln -s /usr/lib/chromium-driver/chromedriver /usr/local/bin/chromedriver; \
+    fi && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# 5. ChromeDriver のインストール (アーキテクチャ自動判定)
-RUN LATEST_STABLE_CFT_JSON=$(wget -qO- https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json) && \
-    if [ "$ARCH" = "amd64" ]; then PLATFORM="linux64"; else PLATFORM="linux-arm64"; fi && \
-    CHROMEDRIVER_URL=$(echo "$LATEST_STABLE_CFT_JSON" | jq -r ".channels.Stable.downloads.chromedriver[] | select(.platform==\"$PLATFORM\") | .url") && \
-    wget -q -O /tmp/chromedriver.zip "$CHROMEDRIVER_URL" && \
-    unzip -q /tmp/chromedriver.zip -d /tmp && \
-    mv /tmp/*/chromedriver /usr/local/bin/chromedriver && \
-    chmod +x /usr/local/bin/chromedriver && \
-    rm /tmp/chromedriver.zip
 
 # 6. 作業ディレクトリ
 WORKDIR /app

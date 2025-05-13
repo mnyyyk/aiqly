@@ -47,6 +47,8 @@ from backend.tasks import add as add_task  # addタスクをインポート
 
 # --- Google Cookies Blueprint ---
 from backend.routes.google_cookies import google_cookies_bp
+# --- JWT Auth Blueprint ---
+from backend.routes.auth_jwt import jwt_bp
 
 # --- モデル ---
 from backend.models import (
@@ -216,7 +218,9 @@ google_bp = make_google_blueprint(
 )
 app.register_blueprint(google_bp, url_prefix="/login")
 # Register Google‑Cookies API blueprint
+CORS(app, supports_credentials=True)
 app.register_blueprint(google_cookies_bp, url_prefix="/api")
+app.register_blueprint(jwt_bp, url_prefix="/api")
 CORS(app, supports_credentials=True)
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'change-this-very-secret-key-in-production')
 if app.config['SECRET_KEY'] == 'change-this-very-secret-key-in-production': print("WARNING: Use a strong SECRET_KEY!")

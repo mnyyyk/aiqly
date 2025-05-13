@@ -37,20 +37,17 @@ def fetch_text_simple(url: str, user_id: int | None = None, timeout_sec=15) -> s
     if "sites.google.com" in url and user_id is not None:
         cookies_to_add = get_google_cookies(user_id)
 
+    # --- Build requests session (always use a Session object) -------------
     sess = requests.Session()
-    if cookies_to_add:
-        for ck in cookies_to_add:
-            try:
-                sess.cookies.set(
-                    ck.get("name"),
-                    ck.get("value"),
-                    domain=ck.get("domain", ".google.com"),
-                    path=ck.get("path", "/"),
-                )
-            except Exception as ck_err:
-                logger.warning("Failed to set cookie %s: %s", ck.get("name"), ck_err)
-    else:
-        sess = requests  # fallback to requests module for one‑shot call
+
+    if cookies_to_add:  # Google Sites private pages
+        # requests.Session expects a {name: value} map; ignore other fields
+        try:
+            cookie_map = {ck["name"]: ck["value"] for ck in cookies_to_add if ck.get("name")}
+            sess.cookies.update(cookie_map)
+            logger.info("Injected %d Google cookies into session", len(cookie_map))
+        except Exception as ck_err:
+            logger.warning("Failed to inject cookies: %s", ck_err)
     try:
         r = sess.get(url,
                      timeout=timeout_sec,

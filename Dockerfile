@@ -34,88 +34,42 @@ RUN --mount=type=cache,target=/var/cache/apt \
 #   * amd64  : Google Chrome Stable ＋ 同バージョン ChromeDriver (CfT)
 #   * arm64  : Debian 公式 chromium ＋ chromium-driver (または CfT の arm64 ChromeDriver)
 #
-RUN set -e; \
-    ARCH="$(dpkg --print-architecture)"; \
-    echo "Detected architecture: ${ARCH}"; \
-    # 必要なライブラリをChrome/Chromiumインストール前に再度updateしてインストール試行
-    # これにより、Chrome/Chromiumの依存関係を解決しやすくなる
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-        libnss3 \
-        libglib2.0-0 \
-        # 他にエラーが出るようなら、ここに追加していく
-        lsb-release \
-        xdg-utils \
-    || echo "Some optional libraries might not be available, continuing chrome/chromium installation." ; \
-    # || true; # エラーが出ても続行させる場合（非推奨だが、slimイメージで特定ライブラリがない場合の一時しのぎ）
-
-    if [ "${ARCH}" = "amd64" ]; then \
-        CHROME_PLATFORM="linux64"; \
-        CHROME_DEB="google-chrome-stable_current_amd64.deb"; \
-        echo "Installing Google Chrome and ChromeDriver for amd64..."; \
-        wget -q "https://dl.google.com/linux/direct/${CHROME_DEB}" -P /tmp; \
-        # apt-get update; # この直前でupdate済み
-        # dpkgでインストールし、依存関係の問題があれば -f installで修正
-        dpkg -i /tmp/${CHROME_DEB} || apt-get -f install -y --no-install-recommends; \
-        rm /tmp/${CHROME_DEB}; \
-        \
-        LATEST_JSON=$(wget -qO- https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json); \
-        CHROMEDRIVER_URL=$(echo "${LATEST_JSON}" | jq -r ".channels.Stable.downloads.chromedriver[] | select(.platform==\"${CHROME_PLATFORM}\") | .url"); \
-        if [ -z "${CHROMEDRIVER_URL}" ]; then echo "Failed to obtain ChromeDriver URL for amd64"; exit 1; fi; \
-        wget -q -O /tmp/chromedriver.zip "${CHROMEDRIVER_URL}"; \
-        unzip -q /tmp/chromedriver.zip -d /tmp; \
-        # CfTのzipは chromedriver-linux64/chromedriver のように展開されることが多い
-        if [ -f "/tmp/chromedriver-${CHROME_PLATFORM}/chromedriver" ]; then \
-            mv "/tmp/chromedriver-${CHROME_PLATFORM}/chromedriver" /usr/local/bin/chromedriver; \
-            rm -rf "/tmp/chromedriver-${CHROME_PLATFORM}"; \
-        else \
-            echo "ChromeDriver binary not found in /tmp/chromedriver-${CHROME_PLATFORM}/ after unzipping (amd64)."; ls -lR /tmp; exit 1; \
-        fi; \
-        chmod +x /usr/local/bin/chromedriver; \
-        rm -rf /tmp/chromedriver.zip; \
-    elif [ "${ARCH}" = "arm64" ]; then \
-        echo "Installing Chromium and chromium-driver for arm64..."; \
-        # apt-get update; # この直前でupdate済み
-        apt-get install -y --no-install-recommends chromium chromium-driver; \
-        # chromium-driver パッケージが /usr/bin/chromedriver を提供することが多い
-        if [ -f /usr/bin/chromedriver ]; then \
-            ln -sf /usr/bin/chromedriver /usr/local/bin/chromedriver; \
-            echo "Linked /usr/bin/chromedriver to /usr/local/bin/chromedriver for arm64"; \
-        elif [ -f /usr/lib/chromium-driver/chromedriver ]; then \
-            ln -sf /usr/lib/chromium-driver/chromedriver /usr/local/bin/chromedriver; \
-            echo "Linked /usr/lib/chromium-driver/chromedriver to /usr/local/bin/chromedriver for arm64"; \
-        else \
-            echo "Chromium WebDriver not found in expected locations for arm64. Trying CfT for arm64..."; \
-            # CfT の arm64 ChromeDriver を試す (chromium-driver が見つからない場合のフォールバック)
-            CHROME_PLATFORM_ARM="linux-arm64"; \
-            LATEST_JSON_ARM=$(wget -qO- https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json); \
-            CHROMEDRIVER_URL_ARM=$(echo "${LATEST_JSON_ARM}" | jq -r ".channels.Stable.downloads.chromedriver[] | select(.platform==\"${CHROME_PLATFORM_ARM}\") | .url"); \
-            if [ -z "${CHROMEDRIVER_URL_ARM}" ]; then echo "Failed to obtain ChromeDriver URL for arm64 from CfT"; exit 1; fi; \
-            wget -q -O /tmp/chromedriver_arm.zip "${CHROMEDRIVER_URL_ARM}"; \
-            unzip -q /tmp/chromedriver_arm.zip -d /tmp; \
-            if [ -f "/tmp/chromedriver-${CHROME_PLATFORM_ARM}/chromedriver" ]; then \
-                mv "/tmp/chromedriver-${CHROME_PLATFORM_ARM}/chromedriver" /usr/local/bin/chromedriver; \
-                rm -rf "/tmp/chromedriver-${CHROME_PLATFORM_ARM}"; \
-            else \
-                echo "ChromeDriver binary not found in /tmp/chromedriver-${CHROME_PLATFORM_ARM}/ after unzipping (arm64 CfT)."; ls -lR /tmp; exit 1; \
-            fi; \
-            chmod +x /usr/local/bin/chromedriver; \
-            rm -rf /tmp/chromedriver_arm.zip; \
-        fi; \
-        # google-chrome という名前でchromiumを呼び出せるようにシンボリックリンク (オプション)
-        if [ -f /usr/bin/chromium ]; then \
-             ln -sf /usr/bin/chromium /usr/local/bin/google-chrome; \
-        fi; \
+RUN --mount=type=cache,target=/var/cache/apt \
+    --mount=type=cache,target=/var/lib/apt \
+    set -eux; \
+    echo "Modifying sources.list files if they exist..."; \
+    # /etc/apt/sources.list.d/debian.sources が存在すれば編集
+    if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
+        echo "Modifying /etc/apt/sources.list.d/debian.sources"; \
+        sed -i 's/^\(deb.* main\)$/\1 contrib non-free non-free-firmware/g; s/^\(deb-src.* main\)$/\1 contrib non-free non-free-firmware/g' /etc/apt/sources.list.d/debian.sources; \
+        cat /etc/apt/sources.list.d/debian.sources; \
     else \
-        echo "Unsupported architecture: ${ARCH}"; exit 1; \
+        echo "/etc/apt/sources.list.d/debian.sources not found."; \
     fi; \
-    # --- バージョン確認 ---
-    if [ -x /usr/local/bin/google-chrome ]; then google-chrome --version; elif [ -x /usr/bin/chromium ]; then chromium --version; else echo "Chrome/Chromium not found for version check."; fi; \
-    if [ -x /usr/local/bin/chromedriver ]; then chromedriver --version; else echo "ChromeDriver not found for version check."; fi; \
-    # キャッシュクリア
-    apt-get clean; \
+    # /etc/apt/sources.list が存在すれば編集 (フォールバック)
+    if [ -f /etc/apt/sources.list ]; then \
+        echo "Modifying /etc/apt/sources.list"; \
+        sed -i 's/^\(deb.* main\)$/\1 contrib non-free non-free-firmware/g; s/^\(deb-src.* main\)$/\1 contrib non-free non-free-firmware/g' /etc/apt/sources.list; \
+        cat /etc/apt/sources.list; \
+    else \
+        echo "/etc/apt/sources.list not found."; \
+    fi; \
+    \
+    apt-get update; \
+    echo "Installing core build packages..."; \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      build-essential \
+      libpq-dev \
+      gcc; \
+    echo "Installing utility packages..."; \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      wget \
+      unzip \
+      jq \
+      gnupg \
+      ca-certificates; \
+    echo "Core packages installed."; \
     rm -rf /var/lib/apt/lists/*
-
 # 6. 作業ディレクトリ
 WORKDIR /app
 

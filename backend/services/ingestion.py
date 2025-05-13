@@ -143,14 +143,44 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
 
     driver = None
     try:
-        # --- choose correct ChromeDriver binary automatically ---
-        # On ARM (Graviton / Apple‑silicon) containers we must tell webdriver‑manager
-        # to download the arm64 build; otherwise we hit “Exec format error”.
-        import platform, os
+        # --- choose correct ChromeDriver binary automatically (ARM friendly) ---
+        def _arm64_chromedriver() -> str | None:
+            """
+            On Graviton / Apple‑silicon images webdriver‑manager (v3.x) only knows
+            how to fetch the x86_64 build, so we manually download the arm64 build
+            from the official “chrome‑for‑testing” channel.
+            Returns absolute file path or None on failure.
+            """
+            try:
+                import tempfile, pathlib, zipfile, shutil, requests as _rq
+                latest_url = (
+                    "https://googlechromelabs.github.io/chrome-for-testing/"
+                    "LATEST_RELEASE_LINUX_ARM64"
+                )
+                ver = _rq.get(latest_url, timeout=5).text.strip()
+                zip_url = (
+                    f"https://storage.googleapis.com/chrome-for-testing-public/"
+                    f"{ver}/linux-arm64/chromedriver-linux-arm64.zip"
+                )
+                tmpdir = pathlib.Path(tempfile.mkdtemp(prefix="cd-arm64-"))
+                zfile = tmpdir / "cd.zip"
+                zfile.write_bytes(_rq.get(zip_url, timeout=20).content)
+                with zipfile.ZipFile(zfile) as zf:
+                    zf.extractall(tmpdir)
+                driver_bin = next(tmpdir.rglob("chromedriver"))
+                driver_bin.chmod(0o755)
+                return str(driver_bin)
+            except Exception as _e:
+                logger.warning("Failed to download arm64 chromedriver: %s", _e)
+                return None
+
+        driver_path: str | None = None
         if platform.machine() in ("aarch64", "arm64"):
-            # webdriver‑manager will look at WDM_ARCH env var
-            os.environ.setdefault("WDM_ARCH", "arm64")
-        driver_path = ChromeDriverManager().install()
+            os.environ.pop("WDM_ARCH", None)  # make sure webdriver‑manager is skipped
+            driver_path = _arm64_chromedriver()
+        if not driver_path:
+            # Fallback to webdriver‑manager (covers x86_64 / local dev)
+            driver_path = ChromeDriverManager().install()
 
         service = ChromeService(driver_path)
         driver = webdriver.Chrome(service=service, options=options)

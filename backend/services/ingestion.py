@@ -143,12 +143,8 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
 
     driver = None
     try:
-        # --- choose correct ChromeDriver binary depending on architecture ---
-        arch = platform.machine()
-        if arch in ("aarch64", "arm64"):
-            driver_path = ChromeDriverManager(os_type="linux_arm64").install()
-        else:
-            driver_path = ChromeDriverManager().install()
+        # --- choose correct ChromeDriver binary automatically ---
+        driver_path = ChromeDriverManager().install()
 
         service = ChromeService(driver_path)
         driver = webdriver.Chrome(service=service, options=options)

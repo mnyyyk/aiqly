@@ -52,11 +52,14 @@ from backend.routes.auth_jwt import jwt_bp
 
 # --- モデル ---
 from backend.models import (
-    User, ChatHistory,
+    User, ChatHistory, GoogleCookie,
     DEFAULT_ICON_URL, DEFAULT_PROMPT_ROLE, DEFAULT_PROMPT_TASK,
     WatchedSheet,
     SlackIntegration
 )
+
+# Import encrypt_blob for cookie encryption
+from backend.utils.crypto import encrypt_blob
 # ---------- Google Drive Push‑Notification (watch/unwatch) ----------
 def _build_drive(creds):
     return build("drive", "v3", credentials=creds)
@@ -599,6 +602,119 @@ def slack_events():
     # Immediate 200 response for Slack (変更なし)
     return "", 200
 # -----------------------------------------------
+
+ # ---------- Google Cookie helpers & endpoint ----------
+def parse_netscape_cookies(cookie_string: str) -> list[dict]:
+    """
+    Netscape形式のCookie文字列をパースし、Selenium が期待する辞書リストへ変換する。
+    """
+    cookies: list[dict] = []
+    for raw in cookie_string.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        cols = line.split("\t")
+        if len(cols) != 7:
+            print(f"Skip malformed Netscape line: {line}")
+            continue
+        domain, host_only, path, secure_flag, expiry_str, name, value = cols
+        try:
+            expiry = int(expiry_str) if expiry_str and expiry_str != "0" else None
+        except ValueError:
+            expiry = None
+        cookies.append({
+            "name": name,
+            "value": value,
+            "domain": domain,
+            "path": path,
+            "secure": secure_flag.upper() == "TRUE",
+            "httpOnly": False,
+            **({"expiry": expiry} if expiry is not None else {})
+        })
+    return cookies
+
+
+@app.route("/api/google/upload_cookies", methods=["POST"])
+@login_required
+def upload_google_cookies_file():
+    """
+    Cookieファイル (.txt Netscape形式 または .json) を受け取り、
+    暗号化して GoogleCookie テーブルに保存する。
+    """
+    upload_key = "cookie_file" if "cookie_file" in request.files else "file"
+    if upload_key not in request.files:
+        return jsonify(status="error", message="Cookieファイルが見つかりません。"), 400
+
+    file = request.files[upload_key]
+    if file.filename == "":
+        return jsonify(status="error", message="ファイルが選択されていません。"), 400
+
+    filename = secure_filename(file.filename)
+    raw_bytes = file.read()
+
+    # --- decode ---
+    for enc in ("utf-8", "latin-1", "shift-jis"):
+        try:
+            file_str = raw_bytes.decode(enc)
+            break
+        except UnicodeDecodeError:
+            file_str = None
+    if file_str is None:
+        return jsonify(status="error", message="ファイルのエンコードを判別できませんでした。"), 400
+
+    cookies: list[dict] = []
+    if filename.lower().endswith(".txt"):
+        cookies = parse_netscape_cookies(file_str)
+    elif filename.lower().endswith(".json"):
+        try:
+            json_data = json.loads(file_str)
+        except json.JSONDecodeError:
+            return jsonify(status="error", message="JSONファイルの解析に失敗しました。"), 400
+        if isinstance(json_data, list):
+            for ck in json_data:
+                if not isinstance(ck, dict):
+                    continue
+                if not all(k in ck for k in ("name", "value", "domain")):
+                    continue
+                norm = {
+                    "name": ck["name"],
+                    "value": ck["value"],
+                    "domain": ck["domain"],
+                    "path": ck.get("path", "/"),
+                    "secure": ck.get("secure", False),
+                    "httpOnly": ck.get("httpOnly", False),
+                }
+                exp_src = ck.get("expirationDate") or ck.get("expiry")
+                if exp_src is not None:
+                    try:
+                        norm["expiry"] = int(float(exp_src))
+                    except ValueError:
+                        pass
+                cookies.append(norm)
+        else:
+            return jsonify(status="error", message="JSONはCookieオブジェクトの配列である必要があります。"), 400
+    else:
+        return jsonify(status="error", message="サポートされていないファイル形式です。"), 400
+
+    if not cookies:
+        return jsonify(status="error", message="有効なCookieを抽出できませんでした。"), 400
+
+    encrypted_blob = encrypt_blob(json.dumps(cookies).encode())
+
+    entry = db.session.scalars(
+        db.select(GoogleCookie).filter_by(user_id=current_user.id)
+    ).first()
+    if entry:
+        entry.cookie_json_encrypted = encrypted_blob
+        entry.created_at = datetime.now(timezone.utc)
+    else:
+        db.session.add(GoogleCookie(
+            user_id=current_user.id,
+            cookie_json_encrypted=encrypted_blob
+        ))
+    db.session.commit()
+    return jsonify(status="ok", message=f"{len(cookies)} 件のCookieを保存しました。")
+ # ------------------------------------------------------
 
 # --- Google Sheet Watch API (push notification) ---
 @app.route("/api/watch_sheet", methods=["POST"])

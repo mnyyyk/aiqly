@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.4
 # 1. 軽量な公式 Python イメージ
 FROM python:3.12-slim
 
@@ -9,7 +10,9 @@ ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 
 # 3. OS 依存パッケージ (PostgreSQLドライバ用など)
 #    + ChromeDriver と Google Chrome に必要なライブラリを追加
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/var/cache/apt \
+    --mount=type=cache,target=/var/lib/apt \
+    apt-get update && apt-get install -y --no-install-recommends \
       build-essential \
       libpq-dev \
       gcc \
@@ -75,7 +78,8 @@ WORKDIR /app
 
 # 7. 依存ライブラリを先にコピー → キャッシュ効率UP
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt && \
     # ビルド後に不要なパッケージを削除 (build-essential, gcc はPythonライブラリのビルドに必要だったため、ここでの削除は適切)
     apt-get purge -y --auto-remove build-essential gcc && \

@@ -33,37 +33,42 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       xdg-utils && \
     rm -rf /var/lib/apt/lists/*
 
-# 4. Google Chrome (amd64 / arm64) と ChromeDriver のインストール
-RUN ARCH="$(dpkg --print-architecture)" && \
-    echo "Detected architecture: ${ARCH}" && \
+# 4. Google Chrome / Chromium ＋ ChromeDriver インストール
+#
+#   * amd64  : Google Chrome Stable ＋ 同バージョン ChromeDriver
+#   * arm64  : Debian 公式 chromium ＋ chromium-driver
+#
+RUN set -e; \
+    ARCH="$(dpkg --print-architecture)"; \
+    echo "Detected architecture: ${ARCH}"; \
     if [ "${ARCH}" = "amd64" ]; then \
         CHROME_PLATFORM="linux64"; \
         CHROME_DEB="google-chrome-stable_current_amd64.deb"; \
+        wget -q "https://dl.google.com/linux/direct/${CHROME_DEB}" -P /tmp; \
+        apt-get update; \
+        apt-get install -y --no-install-recommends /tmp/${CHROME_DEB} || apt-get -f install -y --no-install-recommends; \
+        rm /tmp/${CHROME_DEB}; \
+        LATEST_JSON=$(wget -qO- https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json); \
+        CHROMEDRIVER_URL=$(echo "${LATEST_JSON}" | jq -r ".channels.Stable.downloads.chromedriver[] | select(.platform==\"${CHROME_PLATFORM}\") | .url"); \
+        if [ -z "${CHROMEDRIVER_URL}" ]; then echo "Failed to obtain ChromeDriver URL"; exit 1; fi; \
+        wget -q -O /tmp/chromedriver.zip "${CHROMEDRIVER_URL}"; \
+        unzip -q /tmp/chromedriver.zip -d /tmp; \
+        find /tmp -type f -name chromedriver -exec mv {} /usr/local/bin/chromedriver \;; \
+        chmod +x /usr/local/bin/chromedriver; \
+        rm -rf /tmp/chromedriver.zip /tmp/chromedriver*; \
     elif [ "${ARCH}" = "arm64" ]; then \
-        CHROME_PLATFORM="linux-arm64"; \
-        CHROME_DEB="google-chrome-stable_current_arm64.deb"; \
+        apt-get update; \
+        apt-get install -y --no-install-recommends chromium chromium-driver; \
+        ln -s /usr/bin/chromedriver /usr/local/bin/chromedriver; \
+        ln -s /usr/bin/chromium /usr/local/bin/google-chrome || true; \
     else \
-        echo "Unsupported architecture: ${ARCH}" && exit 1; \
-    fi && \
-    # --- Google Chrome をインストール ---
-    wget -q "https://dl.google.com/linux/direct/${CHROME_DEB}" -P /tmp && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends /tmp/${CHROME_DEB} \
-        || apt-get -f install -y --no-install-recommends && \
-    rm /tmp/${CHROME_DEB} && \
-    # --- ChromeDriver を同バージョンで取得 ---
-    LATEST_JSON=$(wget -qO- https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json) && \
-    CHROMEDRIVER_URL=$(echo "${LATEST_JSON}" | jq -r \
-      ".channels.Stable.downloads.chromedriver[] | select(.platform==\"${CHROME_PLATFORM}\") | .url") && \
-    if [ -z "${CHROMEDRIVER_URL}" ]; then echo "Failed to obtain ChromeDriver URL"; exit 1; fi && \
-    wget -q -O /tmp/chromedriver.zip "${CHROMEDRIVER_URL}" && \
-    unzip -q /tmp/chromedriver.zip -d /tmp && \
-    find /tmp -type f -name chromedriver -exec mv {} /usr/local/bin/chromedriver \; && \
-    chmod +x /usr/local/bin/chromedriver && \
-    rm -rf /tmp/chromedriver.zip /tmp/chromedriver* && \
+        echo "Unsupported architecture: ${ARCH}"; exit 1; \
+    fi; \
     # --- バージョン確認 ---
-    google-chrome --version && chromedriver --version && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    google-chrome --version || chromium --version; \
+    chromedriver --version; \
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/*
 
 # 6. 作業ディレクトリ
 WORKDIR /app

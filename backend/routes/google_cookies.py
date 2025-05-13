@@ -11,6 +11,7 @@ Authentication:
 """
 
 import jwt
+import logging
 from flask import Blueprint, request, jsonify, abort, current_app
 from backend.models import db, GoogleCookie, User
 from backend.utils.crypto import encrypt_blob
@@ -63,8 +64,12 @@ def save_google_cookies():
         abort(400, description="cookie data missing")
 
     # --- Encrypt & persist ----
-    encrypted = encrypt_blob(raw_bytes)
-    gc = GoogleCookie(user_id=user.id, cookie_json_encrypted=encrypted)
-    db.session.add(gc)
-    db.session.commit()
+    try:
+        encrypted = encrypt_blob(raw_bytes)
+        gc = GoogleCookie(user_id=user.id, cookie_json_encrypted=encrypted)
+        db.session.add(gc)
+        db.session.commit()
+    except Exception as e:
+        current_app.logger.exception("Error saving Google cookies")
+        abort(500, description="Failed to save cookies")
     return jsonify(status="ok"), 201

@@ -1,4 +1,3 @@
-# backend/routes/auth_jwt.py
 from flask import Blueprint, jsonify, current_app, request
 from flask_login import login_required, current_user
 import jwt, os

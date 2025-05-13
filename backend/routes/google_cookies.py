@@ -7,7 +7,7 @@ Accepts either:
 
 Authentication:
   Bearer JWT in `Authorization` header.
-  The token is validated with app.config["JWT_SECRET_KEY"]; claim **sub** must contain user id.
+  The token is validated with app.config["JWT_SECRET_KEY"]; claim **user_id** (or legacy **sub**) must contain user id.
 """
 
 import jwt
@@ -34,7 +34,8 @@ def _authenticate_bearer(req) -> User | None:
     except jwt.PyJWTError:
         return None
 
-    user_id = payload.get("sub")
+    # Accept either "user_id" (our issued tokens) or "sub" (fallback)
+    user_id = payload.get("user_id") or payload.get("sub")
     if not user_id:
         return None
     return db.session.get(User, int(user_id))

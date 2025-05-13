@@ -20,6 +20,7 @@ RUN --mount=type=cache,target=/var/cache/apt \
       wget \
       unzip \
       jq \
+      curl \
       gnupg \
       libglib2.0-0 \
       libnss3 \
@@ -72,6 +73,10 @@ RUN set -e; \
     chromedriver --version; \
     apt-get clean; \
     rm -rf /var/lib/apt/lists/*
+
+ENV CHROME_BIN=/usr/bin/google-chrome
+ENV CHROMEDRIVER_BIN=/usr/local/bin/chromedriver
+
 
 # 6. 作業ディレクトリ
 WORKDIR /app

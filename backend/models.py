@@ -3,7 +3,7 @@
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from backend.extensions import db  # extensions.py から db をインポート
-from sqlalchemy import Text, ForeignKey, DateTime, BigInteger, LargeBinary, UUID  # 追加: UUID
+from sqlalchemy import Text, ForeignKey, DateTime, BigInteger, LargeBinary  # 追加: UUID 削除
 from sqlalchemy.sql import func # func をインポート (タイムスタンプ用)
 from sqlalchemy.orm import relationship # relationship をインポート
 
@@ -181,8 +181,9 @@ class GoogleCookie(db.Model):
     # 主キー
     id = db.Column(db.Integer, primary_key=True)
 
-    # ログインしているユーザーを UUID で識別
-    user_id = db.Column(db.UUID(as_uuid=True), nullable=False)
+    # ログインしているユーザーを Integer で識別し、外部キー制約を追加
+    user_id = db.Column(db.Integer, ForeignKey('users.id'), nullable=False, index=True)
+    user = relationship("User", backref="google_cookies")
 
     # Cookie（JSON）を暗号化して格納
     cookie_json_encrypted = db.Column(db.LargeBinary, nullable=False)

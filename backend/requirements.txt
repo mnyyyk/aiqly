@@ -31,4 +31,4 @@ chromadb[postgres]
 psycopg2-binary
 chromadb==0.4.13
 psycopg[binary]==3.2.7
-Flask-JWT-Extended==4.6.0
+flask-jwt-extended==4.6.0

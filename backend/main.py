@@ -8,6 +8,10 @@ from flask import (
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
+# --- JWT Auth ---
+from flask_jwt_extended import (
+    JWTManager, verify_jwt_in_request, get_jwt_identity
+)
 import traceback
 # --- Google OAuth 関連 ---
 from flask_dance.contrib.google import make_google_blueprint, google as google_conn
@@ -228,6 +232,8 @@ CORS(app, supports_credentials=True)
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'change-this-very-secret-key-in-production')
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "change-this-in-prod")
 if app.config['SECRET_KEY'] == 'change-this-very-secret-key-in-production': print("WARNING: Use a strong SECRET_KEY!")
+# --- JWT Manager initialisation ---
+jwt = JWTManager(app)
  # --- Database connection ---
 db_uri = os.getenv("DATABASE_URL")
 if db_uri:
@@ -1085,12 +1091,35 @@ def handle_chatbot_settings():
             return jsonify({"status": "ok", "message": "Settings saved."})
         except Exception as e: db.session.rollback(); print(f"Error writing settings user {user.id}: {e}"); traceback.print_exc(); return jsonify({"status": "error", "message": "Failed save settings."}), 500
 
-# --- ユーザー設定用API (変更なし) ---
+# --- ユーザー設定用API ---
 @app.route("/api/user/info", methods=["GET"])
-@login_required
 def get_user_info():
-    # ...(変更なし)...
-    return jsonify({"status": "ok", "email": current_user.email})
+    """
+    Returns the current user's email.
+    Works with either:
+      1) classic Flask‑Login session (browser cookie) **or**
+      2) Bearer JWT sent in the Authorization header.
+    """
+    # --- 1) Check Flask‑Login session ---
+    if current_user.is_authenticated:
+        return jsonify({"status": "ok", "email": current_user.email})
+
+    # --- 2) Fallback to JWT in Authorization header ---
+    try:
+        verify_jwt_in_request(optional=True)        # validates token if present
+        identity = get_jwt_identity()               # returns user_id or None
+        if identity is None:
+            return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+        user = db.session.get(User, int(identity))
+        if user is None:
+            return jsonify({"status": "error", "message": "User not found"}), 404
+
+        return jsonify({"status": "ok", "email": user.email})
+    except Exception as e:
+        # Any JWT errors → unauthorized
+        print(f"[get_user_info] JWT auth error: {e}")
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
 
 @app.route("/api/user/update_email", methods=["POST"])
 @login_required

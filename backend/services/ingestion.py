@@ -159,15 +159,27 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
                 driver.get("https://sites.google.com")  # ドメイン合わせ
                 driver.delete_all_cookies()
                 for ck in cookies_to_inject:
-                    # Selenium add_cookie に入れるキーだけ抽出
-                    driver.add_cookie({
-                        "name": ck.get("name"),
-                        "value": ck.get("value"),
-                        "domain": ck.get("domain", ".google.com"),
-                        "path": ck.get("path", "/"),
-                        "secure": ck.get("secure", True),
-                        "httpOnly": ck.get("httpOnly", False)
-                    })
+                    try:
+                        # Selenium 用 cookie ディクショナリ
+                        add_ck = {
+                            "name": ck.get("name"),
+                            "value": ck.get("value"),
+                            # Cookie が持つ domain を優先。無い場合は sites.google.com
+                            "domain": ck.get("domain") or "sites.google.com",
+                            "path": ck.get("path", "/"),
+                            "secure": bool(ck.get("secure", True)),
+                            "httpOnly": bool(ck.get("httpOnly", False)),
+                        }
+                        # expiry が int なら追加
+                        if isinstance(ck.get("expiry"), int):
+                            add_ck["expiry"] = ck["expiry"]
+
+                        driver.add_cookie(add_ck)
+                    except Exception as add_err:
+                        logger.warning(
+                            "Selenium add_cookie failed for %s: %s",
+                            ck.get('name'), add_err
+                        )
                 logger.info("Injected %d Google cookies", len(cookies_to_inject))
             except Exception as cke:
                 logger.warning("Cookie injection failed: %s", cke)

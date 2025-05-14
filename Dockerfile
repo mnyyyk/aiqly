@@ -1,8 +1,6 @@
 # 1. 軽量な公式 Python イメージ
 FROM python:3.12-slim
 
-# アーキテクチャ自動判定用
-ARG ARCH=$(dpkg --print-architecture)
 
 # 2. ログを即時フラッシュ（便利）
 ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
@@ -29,6 +27,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libgtk-3-0 \
       libxss1 \
       libasound2 \
+      fonts-ipafont-gothic \
+      fonts-noto-cjk \
       lsb-release \
       xdg-utils && \
     rm -rf /var/lib/apt/lists/*
@@ -90,4 +90,7 @@ EXPOSE 8000
 
 # 10. gunicorn をデフォルト起動（ポート 8000）
 ENV FLASK_APP=backend.main PYTHONPATH=/app
+# Drop privilege – create non‑root user
+RUN useradd --create-home appuser && chown -R appuser /app
+USER appuser
 CMD ["gunicorn", "backend.main:app", "-k", "gthread", "-w", "4", "-b", "0.0.0.0:8000"]

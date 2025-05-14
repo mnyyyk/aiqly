@@ -613,28 +613,43 @@ def slack_events():
 def parse_netscape_cookies(cookie_string: str) -> list[dict]:
     """
     Netscape形式のCookie文字列をパースし、Selenium が期待する辞書リストへ変換する。
+    より堅牢に #HttpOnly_ プレフィックスを考慮し、コメント行/メタデータをスキップ。
     """
     cookies: list[dict] = []
     for raw in cookie_string.splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
+        line = raw.rstrip()
+        if not line:
             continue
+
+        http_only_flag = False
+        if line.startswith("#HttpOnly_"):
+            http_only_flag = True
+            line = line[len("#HttpOnly_"):]  # strip prefix and continue parsing
+
+        if line.startswith("#") and not http_only_flag:
+            # comment / metadata line → ignore
+            continue
+
         cols = line.split("\t")
         if len(cols) != 7:
             print(f"Skip malformed Netscape line: {line}")
             continue
+
         domain, host_only, path, secure_flag, expiry_str, name, value = cols
+
+        # Convert expiry
         try:
             expiry = int(expiry_str) if expiry_str and expiry_str != "0" else None
         except ValueError:
             expiry = None
+
         cookies.append({
             "name": name,
             "value": value,
             "domain": domain,
             "path": path,
             "secure": secure_flag.upper() == "TRUE",
-            "httpOnly": False,
+            "httpOnly": http_only_flag,
             **({"expiry": expiry} if expiry is not None else {})
         })
     return cookies

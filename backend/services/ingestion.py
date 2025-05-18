@@ -158,11 +158,39 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
         # --- Cookie injection: group by domain and inject per domain ---
         try:
             if cookies_to_inject:
-                # Group cookies by their domain (strip leading dot)
-                domain_map = {}
+                # --- Build domain→cookies map ---
+                domain_map: dict[str, list[dict]] = {}
                 for ck in cookies_to_inject:
-                    dom = (ck.get("domain") or "sites.google.com").lstrip(".")
+                    dom_raw = ck.get("domain") or "sites.google.com"
+                    # keep both dotted & non‑dotted variants
+                    dom = dom_raw.lstrip(".")
                     domain_map.setdefault(dom, []).append(ck)
+
+                # --- Fallback: ensure accounts.google.com cookies exist ---
+                if "accounts.google.com" not in domain_map:
+                    base_cookies = domain_map.get("google.com", []) + domain_map.get(".google.com", [])
+                    if base_cookies:
+                        domain_map["accounts.google.com"] = [
+                            {**bc, "domain": "accounts.google.com"} for bc in base_cookies
+                        ]
+                        logger.debug(
+                            "Synthesised %d cookies for accounts.google.com from google.com",
+                            len(base_cookies)
+                        )
+                # guarantee G_AUTHUSER_H=0
+                has_authuser = any(
+                    c.get("name") == "G_AUTHUSER_H" for c in domain_map.get("accounts.google.com", [])
+                )
+                if not has_authuser:
+                    domain_map.setdefault("accounts.google.com", []).append({
+                        "name": "G_AUTHUSER_H",
+                        "value": "0",
+                        "domain": "accounts.google.com",
+                        "path": "/",
+                        "secure": True,
+                        "httpOnly": False,
+                    })
+                    logger.debug("Added synthetic G_AUTHUSER_H=0 cookie for accounts.google.com")
 
                 logger.debug("Cookie domain_map = %s",
                              json.dumps({k: len(v) for k, v in domain_map.items()}, indent=2))

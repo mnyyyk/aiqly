@@ -994,7 +994,8 @@ def upload_file():
         try:
             print(f"User {user_id} overwriting File: {filename}"); delete_success = retriever.delete_documents_by_source(filename, user_id)
             if not delete_success: print(f"Warning: Failed delete for User {user_id}, file {filename}.")
-            if not os.path.exists(app.config['UPLOAD_FOLDER']): os.makedirs(app.config['UPLOAD_FOLDER'])
+            # Ensure upload folder exists (safe for parallel workers)
+            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
             file.save(filepath); print(f"Temp file saved for user {user_id}: {filepath}")
             text, file_ext = None, filename.rsplit('.', 1)[1].lower()
             print(f"Extracting text from: {filename} ({file_ext})")

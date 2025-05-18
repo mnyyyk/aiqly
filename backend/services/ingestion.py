@@ -132,8 +132,9 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
         return simple
     # ↓ ここから先は従来の Selenium 流れ ...
     logger.info(f"Fetching URL with Selenium: {url}")
-    options = webdriver.ChromeOptions(); # オプション設定...
-    options.add_argument('--headless'); options.add_argument('--no-sandbox'); options.add_argument('--disable-dev-shm-usage'); options.add_argument('--disable-gpu'); options.add_argument('--log-level=3'); options.add_argument('--disable-blink-features=AutomationControlled'); options.add_experimental_option('excludeSwitches', ['enable-automation']); options.add_experimental_option('useAutomationExtension', False); options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36')
+    options = webdriver.ChromeOptions()  # オプション設定...
+    options.add_argument('--headless=new');  # use modern headless mode – improves cookie support
+    options.add_argument('--no-sandbox'); options.add_argument('--disable-dev-shm-usage'); options.add_argument('--disable-gpu'); options.add_argument('--log-level=3'); options.add_argument('--disable-blink-features=AutomationControlled'); options.add_experimental_option('excludeSwitches', ['enable-automation']); options.add_experimental_option('useAutomationExtension', False); options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36')
     # --- Ensure cookies (incl. SameSite=None and third‑party) are accepted ---
     options.add_argument("--disable-features=SameSiteByDefaultCookies,CookiesWithoutSameSiteMustBeSecure,BlockThirdPartyCookies")
     options.add_argument("--disable-features=ImprovedCookieControls,ChromeCookieCrumbs")
@@ -166,6 +167,11 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
 
         service = ChromeService(driver_path)
         driver = webdriver.Chrome(service=service, options=options)
+        # --- Enable DevTools Network domain so we can batch‑set cookies with SameSite=None ---
+        try:
+            driver.execute_cdp_cmd("Network.enable", {})
+        except Exception as net_err:
+            logger.debug("CDP Network.enable failed (ignored): %s", net_err)
         # --- Cookie injection: group by domain and inject per domain ---
         try:
             if cookies_to_inject:
@@ -231,30 +237,29 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
                 logger.debug("Cookie domain_map = %s",
                              json.dumps({k: len(v) for k, v in domain_map.items()}, indent=2))
                 injected_count = 0
-                # Clear once at session start; we don’t want to wipe cookies added for earlier domains later
-                driver.delete_all_cookies()
-                for dom, ck_list in domain_map.items():
-                    dummy_url = f"https://{dom}/robots.txt"
-                    driver.get(dummy_url)           # ensure domain match
-                    for ck in ck_list:
-                        add_ck = {
-                            "name": ck.get("name"),
-                            "value": ck.get("value"),
-                            "domain": dom,
-                            "path": ck.get("path", "/"),
-                            "secure": bool(ck.get("secure", True)),
-                            "httpOnly": bool(ck.get("httpOnly", False)),
-                            "sameSite": ck.get("sameSite", "None"),  # Force SameSite=None
-                        }
-                        if isinstance(ck.get("expiry"), int):
-                            add_ck["expiry"] = ck["expiry"]
-                        try:
-                            driver.add_cookie(add_ck)
-                            logger.debug("add_cookie OK -> %s (domain %s)", add_ck["name"], dom)
-                            injected_count += 1
-                        except Exception as add_err:
-                            logger.warning("add_cookie failed (%s): %s", ck.get('name'), add_err, exc_info=True)
-                logger.info("Injected %d cookies across %d domains", injected_count, len(domain_map))
+                # --- Batch‑inject cookies via Chrome DevTools so SameSite=None/secure flags survive ---
+                try:
+                    cdp_cookies = []
+                    for dom, ck_list in domain_map.items():
+                        for ck in ck_list:
+                            c = {
+                                "name": ck.get("name"),
+                                "value": ck.get("value"),
+                                "domain": dom.lstrip("."),  # CDP requires no leading dot
+                                "path": ck.get("path", "/"),
+                                "secure": bool(ck.get("secure", True)),
+                                "httpOnly": bool(ck.get("httpOnly", False)),
+                                "sameSite": ck.get("sameSite", "None"),
+                            }
+                            if isinstance(ck.get("expiry"), int):
+                                c["expires"] = ck["expiry"]
+                            cdp_cookies.append(c)
+                    if cdp_cookies:
+                        driver.execute_cdp_cmd("Network.setCookies", {"cookies": cdp_cookies})
+                        injected_count = len(cdp_cookies)
+                        logger.info("Injected %d cookies across %d domains via CDP", injected_count, len(domain_map))
+                except Exception as cdp_err:
+                    logger.warning("CDP cookie injection failed: %s", cdp_err, exc_info=True)
                 # --- Sanity‑check: visit accounts.google.com once for Google Sites ---
                 if "sites.google.com" in url:
                     acct_url = (

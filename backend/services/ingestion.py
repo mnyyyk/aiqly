@@ -192,6 +192,31 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
                     })
                     logger.debug("Added synthetic G_AUTHUSER_H=0 cookie for accounts.google.com")
 
+                # --- Propagate base google.com cookies to other Google sub‑domains ---
+                # Private Google Sites often require the same SID/HSID/SSIDs that live on
+                # *.google.com to also be available on sites.google.com.  Here we copy any
+                # cookie that currently lives on google.com and is *not already present*
+                # for the destination domain.
+                base_google_cookies = domain_map.get("google.com", [])
+                if base_google_cookies:
+                    for dest in ("sites.google.com",):
+                        dest_list = domain_map.setdefault(dest, [])
+                        for ck in base_google_cookies:
+                            if not any(existing.get("name") == ck.get("name") for existing in dest_list):
+                                dest_list.append({**ck, "domain": dest})
+
+                # --- Guarantee G_AUTHUSER_H=0 for all key Google domains -------------
+                for dom in ("google.com", "sites.google.com"):
+                    if not any(c.get("name") == "G_AUTHUSER_H" for c in domain_map.setdefault(dom, [])):
+                        domain_map[dom].append({
+                            "name": "G_AUTHUSER_H",
+                            "value": "0",
+                            "domain": dom,
+                            "path": "/",
+                            "secure": True,
+                            "httpOnly": False,
+                        })
+
                 logger.debug("Cookie domain_map = %s",
                              json.dumps({k: len(v) for k, v in domain_map.items()}, indent=2))
                 injected_count = 0

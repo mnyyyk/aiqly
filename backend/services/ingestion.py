@@ -243,6 +243,20 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
                         except Exception as add_err:
                             logger.warning("add_cookie failed (%s): %s", ck.get('name'), add_err, exc_info=True)
                 logger.info("Injected %d cookies across %d domains", injected_count, len(domain_map))
+                # --- Sanity‑check: visit accounts.google.com once for Google Sites ---
+                if "sites.google.com" in url:
+                    acct_url = (
+                        "https://accounts.google.com/ServiceLogin"
+                        "?continue=https://sites.google.com"
+                    )
+                    try:
+                        logger.info("Pre‑visiting %s to validate cookies…", acct_url)
+                        driver.get(acct_url)
+                        WebDriverWait(driver, 10).until(
+                            lambda d: d.execute_script("return document.readyState") == "complete"
+                        )
+                    except Exception as pre_chk_err:
+                        logger.debug("accounts.google.com pre‑visit failed (ignored): %s", pre_chk_err)
         except Exception as cke:
             logger.warning("Cookie injection failed: %s", cke)
         driver.set_page_load_timeout(timeout_sec)

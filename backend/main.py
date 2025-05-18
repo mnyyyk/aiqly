@@ -272,8 +272,9 @@ ICON_FILENAME = "ai_icon.png"
 ALLOWED_EXTENSIONS = {"txt", "pdf", "docx", "xls", "xlsx"}
 ALLOWED_ICON_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-if not os.path.exists(UPLOAD_FOLDER): os.makedirs(UPLOAD_FOLDER)
-if not os.path.exists(ICON_UPLOAD_FOLDER): os.makedirs(ICON_UPLOAD_FOLDER)
+# Create folders once; ignore if they already exist
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(ICON_UPLOAD_FOLDER, exist_ok=True)
 
 # --- ヘルパー関数 (変更なし) ---
 

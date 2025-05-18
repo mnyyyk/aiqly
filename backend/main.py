@@ -647,6 +647,8 @@ def parse_netscape_cookies(cookie_string: str) -> list[dict]:
             continue
 
         domain, host_only, path, secure_flag, expiry_str, name, value = cols
+        # Normalise domain: leading dot causes Selenium to reject the cookie for exact‑match domains
+        domain = domain.lstrip(".")
 
         # Convert expiry
         try:

@@ -153,36 +153,39 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
 
         service = ChromeService(driver_path)
         driver = webdriver.Chrome(service=service, options=options)
-        # Cookie を注入する場合は一度同ドメインに遷移してから add_cookie()
-        if cookies_to_inject:
-            try:
-                driver.get("https://sites.google.com")  # ドメイン合わせ
-                driver.delete_all_cookies()
+        # --- Cookie injection: group by domain and inject per domain ---
+        try:
+            if cookies_to_inject:
+                # Group cookies by their domain (strip leading dot)
+                domain_map = {}
                 for ck in cookies_to_inject:
-                    try:
-                        # Selenium 用 cookie ディクショナリ
+                    dom = (ck.get("domain") or "sites.google.com").lstrip(".")
+                    domain_map.setdefault(dom, []).append(ck)
+
+                injected_count = 0
+                for dom, ck_list in domain_map.items():
+                    dummy_url = f"https://{dom}/robots.txt"
+                    driver.get(dummy_url)           # ensure domain match
+                    driver.delete_all_cookies()      # start clean for this domain
+                    for ck in ck_list:
                         add_ck = {
                             "name": ck.get("name"),
                             "value": ck.get("value"),
-                            # Cookie が持つ domain を優先。無い場合は sites.google.com
-                            "domain": ck.get("domain") or "sites.google.com",
+                            "domain": dom,
                             "path": ck.get("path", "/"),
                             "secure": bool(ck.get("secure", True)),
                             "httpOnly": bool(ck.get("httpOnly", False)),
                         }
-                        # expiry が int なら追加
                         if isinstance(ck.get("expiry"), int):
                             add_ck["expiry"] = ck["expiry"]
-
-                        driver.add_cookie(add_ck)
-                    except Exception as add_err:
-                        logger.warning(
-                            "Selenium add_cookie failed for %s: %s",
-                            ck.get('name'), add_err
-                        )
-                logger.info("Injected %d Google cookies", len(cookies_to_inject))
-            except Exception as cke:
-                logger.warning("Cookie injection failed: %s", cke)
+                        try:
+                            driver.add_cookie(add_ck)
+                            injected_count += 1
+                        except Exception as add_err:
+                            logger.warning("add_cookie failed (%s): %s", ck.get('name'), add_err)
+                logger.info("Injected %d cookies across %d domains", injected_count, len(domain_map))
+        except Exception as cke:
+            logger.warning("Cookie injection failed: %s", cke)
         driver.set_page_load_timeout(timeout_sec)
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         logger.info(f"Navigating to {url}...")

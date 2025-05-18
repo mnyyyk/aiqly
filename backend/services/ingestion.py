@@ -136,6 +136,7 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
     options.add_argument('--headless'); options.add_argument('--no-sandbox'); options.add_argument('--disable-dev-shm-usage'); options.add_argument('--disable-gpu'); options.add_argument('--log-level=3'); options.add_argument('--disable-blink-features=AutomationControlled'); options.add_experimental_option('excludeSwitches', ['enable-automation']); options.add_experimental_option('useAutomationExtension', False); options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36')
     # --- Ensure cookies (incl. SameSite=None and third‑party) are accepted ---
     options.add_argument("--disable-features=SameSiteByDefaultCookies,CookiesWithoutSameSiteMustBeSecure,BlockThirdPartyCookies")
+    options.add_argument("--disable-features=ImprovedCookieControls,ChromeCookieCrumbs")
     options.add_experimental_option(
         "prefs",
         {
@@ -243,6 +244,7 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
                             "path": ck.get("path", "/"),
                             "secure": bool(ck.get("secure", True)),
                             "httpOnly": bool(ck.get("httpOnly", False)),
+                            "sameSite": ck.get("sameSite", "None"),  # Force SameSite=None
                         }
                         if isinstance(ck.get("expiry"), int):
                             add_ck["expiry"] = ck["expiry"]

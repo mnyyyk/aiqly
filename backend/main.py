@@ -1,6 +1,16 @@
 # backend/main.py (Admin用履歴表示API追加版)
 
 import os
+import logging
+
+# Global logging level controlled by env var (defaults to INFO)
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    force=True  # override any prior basicConfig (e.g., Gunicorn)
+)
+
 from flask import (
     Flask, request, jsonify, send_from_directory, url_for,
     redirect, flash, render_template, session

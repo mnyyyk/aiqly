@@ -195,10 +195,11 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
                 logger.debug("Cookie domain_map = %s",
                              json.dumps({k: len(v) for k, v in domain_map.items()}, indent=2))
                 injected_count = 0
+                # Clear once at session start; we don’t want to wipe cookies added for earlier domains later
+                driver.delete_all_cookies()
                 for dom, ck_list in domain_map.items():
                     dummy_url = f"https://{dom}/robots.txt"
                     driver.get(dummy_url)           # ensure domain match
-                    driver.delete_all_cookies()      # start clean for this domain
                     for ck in ck_list:
                         add_ck = {
                             "name": ck.get("name"),

@@ -26,7 +26,7 @@ from backend.extensions import get_google_cookies
 # --- ロガー設定 ---
 import logging
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 
 # === シンプルな requests 取得（まずはこちらで試し、失敗したら Selenium） ===
@@ -139,6 +139,8 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
     # --- Google Sites 専用: Cookie 注入で Private ページを取得 ---
     use_google_cookie = "sites.google.com" in url and user_id is not None
     cookies_to_inject = get_google_cookies(user_id) if use_google_cookie else None
+    logger.debug("cookies_to_inject (raw) = %s",
+                 json.dumps(cookies_to_inject, indent=2, ensure_ascii=False) if cookies_to_inject else "None")
 
     driver = None
     try:
@@ -162,6 +164,8 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
                     dom = (ck.get("domain") or "sites.google.com").lstrip(".")
                     domain_map.setdefault(dom, []).append(ck)
 
+                logger.debug("Cookie domain_map = %s",
+                             json.dumps({k: len(v) for k, v in domain_map.items()}, indent=2))
                 injected_count = 0
                 for dom, ck_list in domain_map.items():
                     dummy_url = f"https://{dom}/robots.txt"
@@ -180,9 +184,10 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
                             add_ck["expiry"] = ck["expiry"]
                         try:
                             driver.add_cookie(add_ck)
+                            logger.debug("add_cookie OK -> %s (domain %s)", add_ck["name"], dom)
                             injected_count += 1
                         except Exception as add_err:
-                            logger.warning("add_cookie failed (%s): %s", ck.get('name'), add_err)
+                            logger.warning("add_cookie failed (%s): %s", ck.get('name'), add_err, exc_info=True)
                 logger.info("Injected %d cookies across %d domains", injected_count, len(domain_map))
         except Exception as cke:
             logger.warning("Cookie injection failed: %s", cke)

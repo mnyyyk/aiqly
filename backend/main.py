@@ -745,6 +745,12 @@ def upload_google_cookies_file():
             cookie_json_encrypted=encrypted_blob
         ))
     db.session.commit()
+    # verbose log: how many cookies were stored for which user
+    logging.getLogger(__name__).info(
+        "upload_cookies: user %s saved %d cookies",
+        current_user.id,
+        len(cookies)
+    )
     return jsonify(status="ok", message=f"{len(cookies)} 件のCookieを保存しました。")
  # ------------------------------------------------------
 

@@ -82,7 +82,16 @@ def get_google_cookies(user_id: int) -> list[dict] | None: # 返り値の型ヒ�
         logger.info(f"Successfully retrieved and validated {len(valid_selenium_cookies)} cookies for user {user_id}.")
         if valid_selenium_cookies:
             logger.debug(f"Sample of first validated Selenium cookie for user {user_id}: {str(valid_selenium_cookies[0])[:300]}")
-        
+
+        # extra summary log
+        try:
+            logger.info("get_google_cookies: user %s → %d cookies → %s",
+                        user_id,
+                        len(valid_selenium_cookies),
+                        [c.get("name") for c in valid_selenium_cookies][:10])
+        except Exception:
+            logger.debug("get_google_cookies: logging failed", exc_info=True)
+
         return valid_selenium_cookies
 
     except json.JSONDecodeError as e:

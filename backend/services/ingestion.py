@@ -303,9 +303,28 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
         if target_element:
             structured_text = extract_structured_text(target_element, url)
             cleaned_text = re.sub(r'\n\s*\n\s*\n+', '\n\n', structured_text).strip()
-            logger.info(f"Extracted structured text length: {len(cleaned_text)} chars.")
-            if len(cleaned_text) < 100:
-                logger.warning("Extracted text is short.")
+            logger.info("Extracted structured text length: %d chars.", len(cleaned_text))
+
+            # ------------------------------------------------------------------
+            # Fallback: if .content 直下のテキストがほとんど無い場合は <body> で再抽出
+            # ------------------------------------------------------------------
+            if len(cleaned_text.strip()) < 50:
+                logger.warning(
+                    "Extracted text is short (%d chars) – falling back to <body>.",
+                    len(cleaned_text),
+                )
+                cleaned_text = re.sub(
+                    r'\n\s*\n\s*\n+',
+                    '\n\n',
+                    extract_structured_text(soup.body, url)
+                ).strip()
+                logger.info("Fallback <body> text length: %d chars.", len(cleaned_text))
+                if len(cleaned_text.strip()) < 50:
+                    logger.warning(
+                        "Fallback <body> text is also short – giving up."
+                    )
+                    return None
+
             return cleaned_text
         else:
             logger.error("Could not find body tag.")

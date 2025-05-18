@@ -134,6 +134,16 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
     logger.info(f"Fetching URL with Selenium: {url}")
     options = webdriver.ChromeOptions(); # オプション設定...
     options.add_argument('--headless'); options.add_argument('--no-sandbox'); options.add_argument('--disable-dev-shm-usage'); options.add_argument('--disable-gpu'); options.add_argument('--log-level=3'); options.add_argument('--disable-blink-features=AutomationControlled'); options.add_experimental_option('excludeSwitches', ['enable-automation']); options.add_experimental_option('useAutomationExtension', False); options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36')
+    # --- Ensure cookies (incl. SameSite=None and third‑party) are accepted ---
+    options.add_argument("--disable-features=SameSiteByDefaultCookies,CookiesWithoutSameSiteMustBeSecure,BlockThirdPartyCookies")
+    options.add_experimental_option(
+        "prefs",
+        {
+            "profile.default_content_settings.cookies": 1,
+            "profile.block_third_party_cookies": False,
+            "profile.cookie_controls_mode": 0,  # Chrome 115+
+        },
+    )
 
     logger.info("Setting up WebDriver...")
     # --- Google Sites 専用: Cookie 注入で Private ページを取得 ---
@@ -263,6 +273,7 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         logger.info(f"Navigating to {url}...")
         driver.get(url)
+        logger.info("After navigation current_url=%s", driver.current_url)
         WebDriverWait(driver, timeout_sec).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
         logger.info(f"Waiting {wait_after_load_sec}s...")
         time.sleep(wait_after_load_sec)

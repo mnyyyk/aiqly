@@ -516,7 +516,6 @@ def slack_oauth_callback():
         new_bot_token = resp.get("access_token")
         new_team_id = resp.get("team", {}).get("id")
         team_name = resp.get("team", {}).get("name")
-        slack_user_id = resp.get("authed_user", {}).get("id")
 
         if not new_bot_token or not new_team_id:
             flash("Slack認証で必要な情報(トークンまたはチームID)が取得できませんでした。", "error")
@@ -533,7 +532,6 @@ def slack_oauth_callback():
             print(f"[Slack OAuth] Updating existing integration for user_id: {user_id_for_integration}")
             integration.bot_token = new_bot_token
             integration.team_id = new_team_id
-            integration.slack_user_id = slack_user_id
             integration.client_id = client_id_to_use
             integration.client_secret = client_secret_to_use
             integration.updated_at = datetime.now(timezone.utc)
@@ -544,8 +542,7 @@ def slack_oauth_callback():
                 team_id=new_team_id,
                 bot_token=new_bot_token,
                 client_id=client_id_to_use,
-                client_secret=client_secret_to_use,
-                slack_user_id=slack_user_id
+                client_secret=client_secret_to_use
             )
             db.session.add(integration)
 
@@ -595,28 +592,6 @@ def slack_events():
 
     # 保存して Celery で利用
     body.setdefault("event", {})["clean_text"] = clean_text
-
-    # --- Map Slack sender to in‑app user and attach recent history ---
-    slack_sender_id = event.get("user")
-    if slack_sender_id:
-        integ = db.session.scalars(
-            db.select(SlackIntegration).filter_by(slack_user_id=slack_sender_id)
-        ).first()
-        if integ:
-            app_user_id = integ.user_id
-            body["app_user_id"] = app_user_id   # used by Celery worker
-
-            # Fetch latest 6 chat messages to provide context
-            recent_entries = db.session.scalars(
-                db.select(ChatHistory)
-                .where(ChatHistory.user_id == app_user_id)
-                .order_by(ChatHistory.timestamp.desc())
-                .limit(6)
-            ).all()
-
-            body["recent_history"] = [
-                {"role": h.role, "content": h.content} for h in reversed(recent_entries)
-            ]
 
     # enqueue async processing – do not block / avoid duplicate replies
     try:

@@ -5,6 +5,8 @@ from backend import models
 from backend.extensions import db
 import re
 from slack_sdk import WebClient
+from slack_sdk.errors import SlackApiError
+from celery.exceptions import SoftTimeLimitExceeded
 
 @celery_app.task
 def add(x, y):
@@ -33,8 +35,8 @@ def update_google_sheet_sources(file_id=None, user_id=None):
         file_id = src.name.split(":", 1)[1]
         _lazy_ingest_google_sheet(file_id, src.user_id)
 
-@celery_app.task
-def handle_slack_event(body):
+@celery_app.task(bind=True, soft_time_limit=40, time_limit=45)
+def handle_slack_event(self, body):
     logger.info(f"======= HANDLE_SLACK_EVENT RECEIVED (first 100): {str(body)[:100]} =======")
     print(f"======= PRINT HANDLE_SLACK_EVENT RECEIVED (first 100): {str(body)[:100]} =======")
     try:
@@ -65,12 +67,28 @@ def handle_slack_event(body):
             logger.info(f"{log_prefix} USING BOT TOKEN (tasks.py): First 5: {integ.bot_token[:5]}, Last 5: {integ.bot_token[-5:]}, Length: {len(integ.bot_token)}")
             print(f"{log_prefix} PRINT USING BOT TOKEN (tasks.py): First 5: {integ.bot_token[:5]}, Last 5: {integ.bot_token[-5:]}, Length: {len(integ.bot_token)}")
 
-            answer = answer_question(user_text, integ.user_id, [])
+            try:
+                # --- LLM call (with 25 s application‑level timeout) ---
+                answer = answer_question(user_text, integ.user_id, [], timeout=25)
+            except Exception as llm_err:
+                logger.error("answer_question failed: %s", llm_err, exc_info=True)
+                answer = "申し訳ありません。現在応答できませんでした。"
+
             client = WebClient(token=integ.bot_token)
-            client.chat_postMessage(channel=channel_id, text=answer)
+
+            try:
+                client.chat_postMessage(channel=channel_id, text=answer)
+                logger.info("%s Slack reply sent successfully.", log_prefix)
+            except SlackApiError as api_err:
+                logger.error("%s Slack API error: %s", log_prefix, api_err.response.get('error'), exc_info=True)
+            except Exception as post_err:
+                logger.error("%s Unexpected error posting message: %s", log_prefix, post_err, exc_info=True)
 
         logger.info("======= Slack event processed successfully. =======")
         print("======= PRINT Slack event processed successfully. =======")
+    except SoftTimeLimitExceeded:
+        logger.error("Soft time‑limit exceeded – task aborted.")
+        raise
     except Exception as e:
         logger.error(f"======= ERROR processing slack event: {e} =======", exc_info=True)
         print(f"======= PRINT ERROR processing slack event: {e} =======")

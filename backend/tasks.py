@@ -68,8 +68,8 @@ def handle_slack_event(self, body):
             print(f"{log_prefix} PRINT USING BOT TOKEN (tasks.py): First 5: {integ.bot_token[:5]}, Last 5: {integ.bot_token[-5:]}, Length: {len(integ.bot_token)}")
 
             try:
-                # --- LLM call (with 25 s application‑level timeout) ---
-                answer = answer_question(user_text, integ.user_id, [], timeout=25)
+                # --- LLM call (default timeout) ---
+                answer = answer_question(user_text, integ.user_id, [])
             except Exception as llm_err:
                 logger.error("answer_question failed: %s", llm_err, exc_info=True)
                 answer = "申し訳ありません。現在応答できませんでした。"

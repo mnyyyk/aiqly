@@ -19,9 +19,9 @@
         "-Q",
         "default,celery",
         "--pool",
-        "threads",
+        "solo",
         "--concurrency",
-        "4",
+        "1",
         "--loglevel",
         "INFO"
       ],

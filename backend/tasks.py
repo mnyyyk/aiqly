@@ -50,7 +50,11 @@ def handle_slack_event(self, body):
             event      = body.get("event", {})
             team_id    = body.get("team_id")
             channel_id = event.get("channel")
-            user_text  = event.get("clean_text", "").strip()
+            user_text = event.get("clean_text")
+            if not user_text:
+                user_text = event.get("text", "").strip()
+            else:
+                user_text = user_text.strip()
 
             if not (team_id and channel_id and user_text):
                 return
@@ -70,6 +74,7 @@ def handle_slack_event(self, body):
             try:
                 # --- LLM call (default timeout) ---
                 answer = answer_question(user_text, integ.user_id, [])
+                thread_ts = event.get("thread_ts") or event.get("ts")
             except Exception as llm_err:
                 logger.error("answer_question failed: %s", llm_err, exc_info=True)
                 answer = "申し訳ありません。現在応答できませんでした。"
@@ -77,12 +82,12 @@ def handle_slack_event(self, body):
             client = WebClient(token=integ.bot_token)
 
             try:
-                client.chat_postMessage(channel=channel_id, text=answer)
-                logger.info("%s Slack reply sent successfully.", log_prefix)
+                resp = client.chat_postMessage(channel=channel_id, text=answer, thread_ts=thread_ts)
+                logger.info("%s Slack reply sent successfully: %s", log_prefix, resp.data)
             except SlackApiError as api_err:
                 logger.error("%s Slack API error: %s", log_prefix, api_err.response.get('error'), exc_info=True)
             except Exception as post_err:
-                logger.error("%s Unexpected error posting message: %s", log_prefix, post_err, exc_info=True)
+                logger.exception("%s Unexpected error posting message", log_prefix)
 
         logger.info("======= Slack event processed successfully. =======")
         print("======= PRINT Slack event processed successfully. =======")
@@ -90,6 +95,6 @@ def handle_slack_event(self, body):
         logger.error("Soft time‑limit exceeded – task aborted.")
         raise
     except Exception as e:
-        logger.error(f"======= ERROR processing slack event: {e} =======", exc_info=True)
+        logger.exception("======= ERROR processing slack event =======")
         print(f"======= PRINT ERROR processing slack event: {e} =======")
         raise

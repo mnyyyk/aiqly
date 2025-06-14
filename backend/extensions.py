@@ -7,8 +7,27 @@ import logging # ロガーを追加
 from backend.utils.crypto import decrypt_blob # 修正: backend. からの相対インポート
 # from backend.models import GoogleCookie # 関数内でインポートするためコメントアウト
 
-# インスタンスをここで作成
-db = SQLAlchemy()
+import os
+
+# --- SQLAlchemy engine options ---------------------------------------------
+_ENGINE_OPTIONS = {
+    # Ensure dead connections are detected and re‑established automatically
+    "pool_pre_ping": True,
+    # Recycle connections a little before AWS NLB idle‑timeout (3500 s)
+    "pool_recycle": int(os.getenv("SQL_POOL_RECYCLE", "3300")),
+    # Reasonable defaults; can be tuned via env‑vars if needed
+    "pool_size": int(os.getenv("SQL_POOL_SIZE", "10")),
+    "max_overflow": int(os.getenv("SQL_POOL_MAX_OVERFLOW", "20")),
+    # Keep‑alive settings so half‑open sockets are detected by the kernel
+    "connect_args": {
+        "keepalives": 1,
+        "keepalives_idle": 30,
+        "keepalives_interval": 10,
+        "keepalives_count": 5,
+    },
+}
+
+db = SQLAlchemy(engine_options=_ENGINE_OPTIONS)
 login_manager = LoginManager()
 
 logger = logging.getLogger(__name__) # ロガーインスタンスを作成

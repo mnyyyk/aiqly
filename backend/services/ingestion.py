@@ -179,8 +179,8 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
                 domain_map: dict[str, list[dict]] = {}
                 for ck in cookies_to_inject:
                     dom_raw = ck.get("domain") or "sites.google.com"
-                    # keep both dotted & non‑dotted variants
-                    dom = dom_raw.lstrip(".")
+                    # keep the domain string as‑is (leading dot OK); CDP can accept it
+                    dom = dom_raw
                     domain_map.setdefault(dom, []).append(ck)
 
                 # --- Fallback: ensure accounts.google.com cookies exist ---
@@ -245,14 +245,18 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
                             c = {
                                 "name": ck.get("name"),
                                 "value": ck.get("value"),
-                                "domain": dom.lstrip("."),  # CDP requires no leading dot
+                                "domain": dom,
                                 "path": ck.get("path", "/"),
                                 "secure": bool(ck.get("secure", True)),
                                 "httpOnly": bool(ck.get("httpOnly", False)),
                                 "sameSite": ck.get("sameSite", "None"),
                             }
-                            if isinstance(ck.get("expiry"), int):
-                                c["expires"] = ck["expiry"]
+                            if "expiry" in ck:
+                                try:
+                                    c["expires"] = int(float(ck["expiry"]))
+                                except (TypeError, ValueError):
+                                    # leave as a session cookie if conversion fails
+                                    pass
                             cdp_cookies.append(c)
                     if cdp_cookies:
                         driver.execute_cdp_cmd("Network.setCookies", {"cookies": cdp_cookies})

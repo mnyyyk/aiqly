@@ -8,6 +8,7 @@ import re
 import os
 import traceback
 from urllib.parse import urljoin
+from urllib.parse import urlparse
 
 # Selenium関連
 from selenium import webdriver
@@ -183,6 +184,17 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
                     dom = dom_raw
                     domain_map.setdefault(dom, []).append(ck)
 
+                # Ensure both dotted and non‑dotted variants of each domain are present
+                for dom in list(domain_map.keys()):
+                    if dom.startswith("."):
+                        plain = dom.lstrip(".")
+                        if plain not in domain_map:
+                            domain_map[plain] = [{**ck, "domain": plain} for ck in domain_map[dom]]
+                    else:
+                        dotted = "." + dom
+                        if dotted not in domain_map:
+                            domain_map[dotted] = [{**ck, "domain": dotted} for ck in domain_map[dom]]
+
                 # --- Fallback: ensure accounts.google.com cookies exist ---
                 if "accounts.google.com" not in domain_map:
                     base_cookies = domain_map.get("google.com", []) + domain_map.get(".google.com", [])
@@ -284,6 +296,17 @@ def fetch_text_from_url(url: str, user_id: int | None = None, timeout_sec=45, wa
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         logger.info(f"Navigating to {url}...")
         driver.get(url)
+        # --- Sanity‑check: did we actually land on the intended host? ---------
+        orig_host = urlparse(url).hostname or ""
+        landed_host = urlparse(driver.current_url).hostname or ""
+        if landed_host and orig_host and landed_host != orig_host and not landed_host.endswith(orig_host):
+            logger.warning(
+                "Navigation ended on unexpected host %s (expected %s) – "
+                "likely authentication / permission failure. Giving up.",
+                landed_host,
+                orig_host,
+            )
+            return None
         logger.info("After navigation current_url=%s", driver.current_url)
         WebDriverWait(driver, timeout_sec).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
         logger.info(f"Waiting {wait_after_load_sec}s...")

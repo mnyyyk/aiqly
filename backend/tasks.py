@@ -1,100 +1,141 @@
-from backend.celery_app import celery_app
+# backend/tasks.py
+# ============================================================================
+# Celery task definitions for Aiqly backend.
+# Updated 2025‑06‑15 — Slack メンション応答の安定化 & 詳細ロギング追加
+# ============================================================================
+
+from __future__ import annotations
+
 import logging
-logger = logging.getLogger(__name__)
-from backend import models
-from backend.extensions import db
 import re
+import time
+import traceback
+from typing import Any
+
+from celery.exceptions import SoftTimeLimitExceeded
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
-from celery.exceptions import SoftTimeLimitExceeded
 
+from backend.celery_app import celery_app
+from backend.extensions import db
+from backend import models
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# simple demo task
+# ---------------------------------------------------------------------------
 @celery_app.task
-def add(x, y):
+def add(x: int | float, y: int | float) -> int | float:
+    """Test task."""
     result = x + y
-    # logger と print の両方でログを出す
-    logger.info(f"======= TASK ADD EXECUTED: {x} + {y} = {result} =======")
-    print(f"======= PRINT TASK ADD EXECUTED: {x} + {y} = {result} =======")
+    logger.info("ADD %s + %s = %s", x, y, result)
     return result
 
-def _lazy_ingest_google_sheet(file_id: str, user_id: int):
-    """
-    遅延 import で循環参照を回避して Google シートを再インデックスする。
-    main.py から直接 import せず、関数を呼ぶ直前で解決する。
-    """
-    from backend.main import ingest_google_sheet  # local import to break circular dep
-    return ingest_google_sheet(file_id, user_id)
+
+# ---------------------------------------------------------------------------
+# Google Sheet re‑ingest (unchanged)
+# ---------------------------------------------------------------------------
+def _lazy_ingest_google_sheet(file_id: str, user_id: int) -> None:
+    """Avoid circular import when calling ingest_google_sheet."""
+    from backend.main import ingest_google_sheet  # local import
+    ingest_google_sheet(file_id, user_id)
+
 
 @celery_app.task
-def update_google_sheet_sources(file_id=None, user_id=None):
-    logger.info(f"======= UPDATE_GOOGLE_SHEET_SOURCES RECEIVED - file_id: {file_id}, user_id: {user_id} =======")
-    print(f"======= PRINT UPDATE_GOOGLE_SHEET_SOURCES RECEIVED - file_id: {file_id}, user_id: {user_id} =======")
+def update_google_sheet_sources(file_id: str | None = None, user_id: int | None = None) -> None:
+    """Re‑ingest all gsheet:* sources for all users (maintenance)."""
+    logger.info("UPDATE_GOOGLE_SHEET_SOURCES – file_id=%s user_id=%s", file_id, user_id)
     sheets = db.session.scalars(
         db.select(models.Source).filter(models.Source.name.like("gsheet:%"))
     )
     for src in sheets:
-        file_id = src.name.split(":", 1)[1]
-        _lazy_ingest_google_sheet(file_id, src.user_id)
+        fid = src.name.split(":", 1)[1]
+        _lazy_ingest_google_sheet(fid, src.user_id)
 
-@celery_app.task(bind=True, soft_time_limit=40, time_limit=45)
-def handle_slack_event(self, body):
-    logger.info(f"======= HANDLE_SLACK_EVENT RECEIVED (first 100): {str(body)[:100]} =======")
-    print(f"======= PRINT HANDLE_SLACK_EVENT RECEIVED (first 100): {str(body)[:100]} =======")
+
+# ---------------------------------------------------------------------------
+# Slack event handler
+# ---------------------------------------------------------------------------
+@celery_app.task(
+    bind=True,
+    acks_late=True,              # ★ 失敗時にタスクをキューへ戻す
+    max_retries=2,
+    soft_time_limit=150,         # ★ ハング検出
+    time_limit=180,
+)
+def handle_slack_event(self, body: dict[str, Any]) -> None:
+    """
+    Process an `app_mention` or DM event from Slack.
+
+    1. Validate payload & extract user text
+    2. Call LLM (backend.services.chat.answer_question)
+    3. Post reply back to Slack
+    """
+    t0 = time.time()
+    prefix = "[HANDLE_SLACK_EVENT]"
+    logger.info("%s received %s", prefix, str(body)[:120])
+
     try:
-        from backend.main import app as flask_app          # noqa: WPS433
-        from backend.extensions import db                  # noqa: WPS433
-        from backend.models import SlackIntegration        # noqa: WPS433
+        # --- lazy imports to avoid circular deps --------------------------------
+        from backend.main import app as flask_app        # noqa: WPS433
+        from backend.models import SlackIntegration      # noqa: WPS433
         from backend.services.chat import answer_question  # noqa: WPS433
-        from slack_sdk import WebClient                    # noqa: WPS433
+
+        event = body.get("event", {})
+        team_id = body.get("team_id")
+        channel_id = event.get("channel")
+        # Slack sends <@U123> mention, remove it:
+        raw_text = (event.get("clean_text") or event.get("text", "")).strip()
+        user_text = re.sub(r"<@U[A-Z0-9]+>", "", raw_text).strip()
+
+        if not (team_id and channel_id and user_text):
+            logger.warning("%s Missing required fields – skip. team=%s, channel=%s, text_length=%d",
+                           prefix, team_id, channel_id, len(user_text))
+            return
 
         with flask_app.app_context():
-            event      = body.get("event", {})
-            team_id    = body.get("team_id")
-            channel_id = event.get("channel")
-            user_text = event.get("clean_text")
-            if not user_text:
-                user_text = event.get("text", "").strip()
-            else:
-                user_text = user_text.strip()
-
-            if not (team_id and channel_id and user_text):
-                return
-
-            log_prefix = "======= HANDLE_SLACK_EVENT ======="
-            integ = db.session.scalars(
+            integ: SlackIntegration | None = db.session.scalars(
                 db.select(SlackIntegration).filter_by(team_id=team_id)
             ).first()
+
             if not integ or not integ.bot_token:
-                logger.error(f"{log_prefix} SlackIntegration not found or no bot token for team_id: {team_id}")
+                logger.error("%s SlackIntegration not found or no bot token for team=%s", prefix, team_id)
                 return
 
-            # ★★★ このログで実際に使われるトークンを確認 ★★★
-            logger.info(f"{log_prefix} USING BOT TOKEN (tasks.py): First 5: {integ.bot_token[:5]}, Last 5: {integ.bot_token[-5:]}, Length: {len(integ.bot_token)}")
-            print(f"{log_prefix} PRINT USING BOT TOKEN (tasks.py): First 5: {integ.bot_token[:5]}, Last 5: {integ.bot_token[-5:]}, Length: {len(integ.bot_token)}")
+            logger.debug("%s Using bot token **%s…%s** (len=%d)",
+                         prefix, integ.bot_token[:5], integ.bot_token[-5:], len(integ.bot_token))
 
+            # --- LLM call -------------------------------------------------------
             try:
-                # --- LLM call (default timeout) ---
                 answer = answer_question(user_text, integ.user_id, [])
-                thread_ts = event.get("thread_ts") or event.get("ts")
-            except Exception as llm_err:
-                logger.error("answer_question failed: %s", llm_err, exc_info=True)
+                logger.info("%s answer_question OK (%.2fs)", prefix, time.time() - t0)
+            except Exception as llm_err:                                      # pylint: disable=broad-except
+                logger.error("%s answer_question failed: %s\n%s",
+                             prefix, llm_err, traceback.format_exc())
                 answer = "申し訳ありません。現在応答できませんでした。"
 
+            # --- Slack post -----------------------------------------------------
             client = WebClient(token=integ.bot_token)
+            thread_ts = event.get("thread_ts") or event.get("ts")
 
             try:
                 resp = client.chat_postMessage(channel=channel_id, text=answer, thread_ts=thread_ts)
-                logger.info("%s Slack reply sent successfully: %s", log_prefix, resp.data)
+                logger.info("%s Slack reply sent (ts=%s)", prefix, resp.data.get("ts"))
             except SlackApiError as api_err:
-                logger.error("%s Slack API error: %s", log_prefix, api_err.response.get('error'), exc_info=True)
-            except Exception as post_err:
-                logger.exception("%s Unexpected error posting message", log_prefix)
+                logger.error("%s Slack API error: %s – %s",
+                             prefix, api_err.response.status_code, api_err.response.get("error"))
+                raise self.retry(exc=api_err, countdown=30)
+            except Exception as post_err:                                      # pylint: disable=broad-except
+                logger.error("%s Unexpected error posting message: %s\n%s",
+                             prefix, post_err, traceback.format_exc())
+                raise self.retry(exc=post_err, countdown=30)
 
-        logger.info("======= Slack event processed successfully. =======")
-        print("======= PRINT Slack event processed successfully. =======")
     except SoftTimeLimitExceeded:
-        logger.error("Soft time‑limit exceeded – task aborted.")
+        logger.error("%s Soft time‑limit exceeded – task aborted.", prefix)
         raise
-    except Exception as e:
-        logger.exception("======= ERROR processing slack event =======")
-        print(f"======= PRINT ERROR processing slack event: {e} =======")
+    except Exception as exc:                                                   # pylint: disable=broad-except
+        logger.error("%s Unhandled exception: %s\n%s", prefix, exc, traceback.format_exc())
         raise
+    finally:
+        logger.info("%s done (%.2fs)", prefix, time.time() - t0)

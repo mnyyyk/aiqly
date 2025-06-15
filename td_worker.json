@@ -3,7 +3,7 @@
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "512",
-  "memory": "1024",
+  "memory": "2048",
   "executionRoleArn": "arn:aws:iam::904368995258:role/ecsTaskExecutionRole",
   "taskRoleArn": "arn:aws:iam::904368995258:role/aiqlyTaskRole",
   "containerDefinitions": [
@@ -17,14 +17,15 @@
         "worker",
         "-Q", "default,celery",
         "--pool", "prefork",
-        "--concurrency", "4",
-        "--loglevel", "INFO",
+        "--concurrency", "2",
+        "--loglevel", "DEBUG",
         "--hostname", "worker_%h"
       ],
       "environment": [
         { "name": "LOG_LEVEL", "value": "DEBUG" },
         { "name": "CELERY_ACKS_LATE", "value": "True" },
-        { "name": "CELERY_WORKER_PREFETCH_MULTIPLIER", "value": "1" }
+        { "name": "CELERY_WORKER_PREFETCH_MULTIPLIER", "value": "1" },
+        { "name": "TOKENIZERS_PARALLELISM", "value": "false" }
       ],
       "secrets": [
         { "name": "REDIS_URL",           "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:REDIS_URL::" },

@@ -16,8 +16,8 @@
         "-A", "backend.celery_app",
         "worker",
         "-Q", "default,celery",
-        "--pool", "prefork",
-        "--concurrency", "2",
+        "--pool", "threads",
+        "--concurrency", "8",
         "--loglevel", "DEBUG",
         "--hostname", "worker_%h"
       ],

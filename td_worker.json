@@ -2,8 +2,8 @@
   "family": "aiqly-worker",
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
-  "cpu": "256",
-  "memory": "512",
+  "cpu": "512",
+  "memory": "1024",
   "executionRoleArn": "arn:aws:iam::904368995258:role/ecsTaskExecutionRole",
   "taskRoleArn": "arn:aws:iam::904368995258:role/aiqlyTaskRole",
   "containerDefinitions": [
@@ -13,30 +13,28 @@
       "essential": true,
       "entryPoint": ["celery"],
       "command": [
-        "-A",
-        "backend.celery_app",
+        "-A", "backend.celery_app",
         "worker",
-        "-Q",
-        "default,celery",
-        "--pool",
-        "solo",
-        "--concurrency",
-        "1",
-        "--loglevel",
-        "INFO"
+        "-Q", "default,celery",
+        "--pool", "prefork",
+        "--concurrency", "4",
+        "--loglevel", "INFO",
+        "--hostname", "worker_%h"
       ],
       "environment": [
-        { "name": "LOG_LEVEL", "value": "DEBUG" }
+        { "name": "LOG_LEVEL", "value": "DEBUG" },
+        { "name": "CELERY_ACKS_LATE", "value": "True" },
+        { "name": "CELERY_WORKER_PREFETCH_MULTIPLIER", "value": "1" }
       ],
       "secrets": [
-        { "name": "REDIS_URL", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:REDIS_URL::" },
-        { "name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:DATABASE_URL::" },
-        { "name": "OPENAI_API_KEY", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:OPENAI_API_KEY::" },
-        { "name": "FERNET_KEY", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:FERNET_KEY::" },
-        { "name": "SLACK_BOT_TOKEN",      "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:SLACK_BOT_TOKEN::" },
-        { "name": "SLACK_SIGNING_SECRET", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:SLACK_SIGNING_SECRET::" },
-        { "name": "SLACK_CLIENT_ID",      "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:SLACK_CLIENT_ID::" },
-        { "name": "SLACK_CLIENT_SECRET",  "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:SLACK_CLIENT_SECRET::" }
+        { "name": "REDIS_URL",           "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:REDIS_URL::" },
+        { "name": "DATABASE_URL",        "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:DATABASE_URL::" },
+        { "name": "OPENAI_API_KEY",      "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:OPENAI_API_KEY::" },
+        { "name": "FERNET_KEY",          "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:FERNET_KEY::" },
+        { "name": "SLACK_BOT_TOKEN",     "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:SLACK_BOT_TOKEN::" },
+        { "name": "SLACK_SIGNING_SECRET","valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:SLACK_SIGNING_SECRET::" },
+        { "name": "SLACK_CLIENT_ID",     "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:SLACK_CLIENT_ID::" },
+        { "name": "SLACK_CLIENT_SECRET", "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:904368995258:secret:aiqly/prod/app-go9G4u:SLACK_CLIENT_SECRET::" }
       ],
       "logConfiguration": {
         "logDriver": "awslogs",

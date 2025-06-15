@@ -83,11 +83,14 @@ def handle_slack_event(self, body: dict[str, Any]) -> None:
         from backend.services.chat import answer_question  # noqa: WPS433
 
         event = body.get("event", {})
+        event_type = event.get("type")
+        logger.debug("%s event_type=%s", prefix, event_type)
         team_id = body.get("team_id")
         channel_id = event.get("channel")
         # Slack sends <@U123> mention, remove it:
         raw_text = (event.get("clean_text") or event.get("text", "")).strip()
-        user_text = re.sub(r"<@U[A-Z0-9]+>", "", raw_text).strip()
+        # Slack のメンション形式 <@UXXXXXX|username> にも対応して削除
+        user_text = re.sub(r"<@[^>]+>", "", raw_text).strip()
 
         if not (team_id and channel_id and user_text):
             logger.warning("%s Missing required fields – skip. team=%s, channel=%s, text_length=%d",
